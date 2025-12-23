@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v3.7</title>
+    <title>Trip.OS v3.6</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -13,7 +13,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- iPhone Home Screen Icon -->
+    <!-- iPhone Home Screen Icon (Updated) -->
     <link rel="apple-touch-icon" href="IMG_9655.jpeg">
 
     <!-- Firebase SDK -->
@@ -230,7 +230,7 @@
                 </div>
                 <div class="w-full">
                     <label class="block font-bold text-xs mb-1">Firebase Config (JSON)</label>
-                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-28 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
+                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-16 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 pt-2">
@@ -238,7 +238,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.7 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.6 ULTIMATE</div>
         </div>
     </main>
 
@@ -489,7 +489,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v3_7', JSON.stringify(data)); // New version key
+                localStorage.setItem('bp_trip_ultimate_v3_6', JSON.stringify(data)); // New version key
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -500,7 +500,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v3_7');
+                const saved = localStorage.getItem('bp_trip_ultimate_v3_6');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
@@ -512,24 +512,11 @@
             };
 
             const initFirebase = async () => {
-                // 強力清洗 JSON 格式
-                let str = firebaseConfigStr.value;
+                let str = firebaseConfigStr.value.trim();
                 if(!str) return;
-
-                // 1. 去除頭尾空白
-                str = str.trim();
                 
-                // 2. 移除所有換行符號、Tab，將多個空格縮減為一個
-                str = str.replace(/[\n\r\t]/g, '').replace(/\s+/g, ' ');
-
-                // 3. 嘗試修復常見錯誤 (將單引號轉為雙引號，修正 key 沒有引號的情況)
-                str = str.replace(/'/g, '"').replace(/(\w+):/g, '"$1":');
-
-                // 4. 最後檢查是否被包裹在多餘的引號中
-                if (str.startsWith('"') && str.endsWith('"')) {
-                    str = str.slice(1, -1);
-                }
-
+                if(str.startsWith("'") && str.endsWith("'")) str = str.slice(1, -1);
+                
                 try {
                     saveData();
                     const config = JSON.parse(str);
@@ -546,9 +533,9 @@
                             isSyncing.value = true;
                         }
                     });
-                    alert('🔥 Connected! (Auto-Fixed JSON)');
+                    alert('🔥 Connected! (Auto-Trimmed & Fixed)');
                 } catch(e) { 
-                    alert('CONFIG ERROR: 即使經過自動修復仍然失敗，請確認你的複製內容。'); 
+                    alert('CONFIG ERROR: 無法解析 JSON，請檢查格式 (Ensure double quotes ")'); 
                     console.error("Firebase Config Error:", e);
                 }
             };
