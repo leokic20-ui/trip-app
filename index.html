@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v3.6</title>
+    <title>Trip.OS v3.8</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -13,7 +13,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- iPhone Home Screen Icon (Updated) -->
+    <!-- iPhone Home Screen Icon -->
     <link rel="apple-touch-icon" href="IMG_9655.jpeg">
 
     <!-- Firebase SDK -->
@@ -48,6 +48,8 @@
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
+        /* 隱藏密碼輸入框的小眼睛圖標 */
+        input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -112,14 +114,23 @@
                     <select v-model="selectedCurrency" @change="updateRate" class="font-bold text-xs bg-gray-100 border-2 border-black p-1 rounded-none focus:outline-none">
                         <option v-for="(rate, code) in currencyRates" :value="code">{{ code }}</option>
                     </select>
-                    <span class="text-2xl font-black tracking-tight">{{ calcDisplay || '0' }}</span>
+                    <!-- 新增 CLR 按鈕在顯示螢幕旁 -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl font-black tracking-tight">{{ calcDisplay || '0' }}</span>
+                        <button v-if="calcDisplay" @click="calcDisplay=''" class="text-[10px] bg-black text-white px-1.5 py-0.5 font-bold hover:bg-red-500 transition-colors">CLR</button>
+                    </div>
                 </div>
                 <div class="flex justify-between text-[10px] font-bold text-gray-500 mb-2">
                     <span>Rate: {{ currentRate }}</span>
                     <span>≈ HKD {{ (parseFloat(calcDisplay || 0) * currentRate).toFixed(2) }}</span>
                 </div>
+                <!-- 修正後的計算機按鈕 4x4 -->
                 <div class="grid grid-cols-4 gap-1.5">
-                    <button v-for="btn in ['7','8','9','/','4','5','6','*','1','2','3','-','C','0','.','+']" @click="handleCalcInput(btn)" class="h-10 border-2 border-black font-bold active:bg-neon-pink shadow-hard-sm active:shadow-none bg-white text-base">{{ btn }}</button>
+                    <button v-for="btn in ['7','8','9','⌫','4','5','6','/','1','2','3','*','.','0','-','+']" 
+                            @click="handleCalcInput(btn)" 
+                            :class="['h-10 border-2 border-black font-bold active:bg-neon-pink shadow-hard-sm active:shadow-none bg-white text-base', btn === '⌫' ? 'text-red-500' : '']">
+                        {{ btn }}
+                    </button>
                 </div>
                 <!-- 付款人下拉選單 -->
                 <div class="flex gap-2 mt-2 w-full">
@@ -207,7 +218,7 @@
             </div>
         </div>
 
-        <!-- 5. SETTING (Old Info) -->
+        <!-- 5. SETTING -->
         <div v-if="currentTab === 'setting'" class="space-y-4 animate-bounce-in">
             <div class="bg-white border-2 border-black shadow-hard p-4 space-y-3 w-full box-border overflow-hidden">
                 <h3 class="font-black border-b-2 border-black pb-2">SETTINGS</h3>
@@ -225,12 +236,13 @@
                     <input v-model="participantsInput" @blur="updateParticipants" placeholder="e.g. Leo, Amy, John" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none">
                 </div>
                 <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">OpenWeather API Key</label>
-                    <input v-model="weatherApiKey" placeholder="Paste Key Here..." class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
+                    <label class="block font-bold text-xs mb-1">OpenWeather API Key (Hidden)</label>
+                    <input type="password" v-model="weatherApiKey" placeholder="Paste Key Here..." class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
                 </div>
                 <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">Firebase Config (JSON)</label>
-                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-16 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
+                    <label class="block font-bold text-xs mb-1">Firebase Config JSON (Hidden)</label>
+                    <input type="password" v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
+                    <div class="text-[9px] text-gray-400 mt-1">* 內容已隱藏保護。Paste JSON here directly.</div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 pt-2">
@@ -238,7 +250,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.6 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.8 ULTIMATE</div>
         </div>
     </main>
 
@@ -384,7 +396,6 @@
                 return item ? item.location : '';
             });
 
-            // Expense Stats
             const totalSpent = computed(() => expenses.value.reduce((acc, curr) => acc + parseFloat(curr.hkdAmount), 0).toFixed(1));
             const expenseStats = computed(() => {
                 const stats = { 'Me': 0 };
@@ -400,11 +411,9 @@
 
             // Methods
             const editTitle = () => { isEditingTitle.value = true; nextTick(() => titleInput.value.focus()); };
-            
             const updateParticipants = () => {
                 const arr = participantsInput.value.split(/[,，]/).map(s => s.trim()).filter(s => s);
-                participants.value = [...new Set(arr)];
-                saveData();
+                participants.value = [...new Set(arr)]; saveData();
             };
 
             const fetchWeather = async () => {
@@ -426,6 +435,7 @@
             
             const handleCalcInput = (btn) => {
                 if(btn==='C') calcDisplay.value='';
+                else if(btn==='⌫') calcDisplay.value = calcDisplay.value.slice(0, -1);
                 else calcDisplay.value += btn;
             };
             const updateRate = () => { };
@@ -489,7 +499,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v3_6', JSON.stringify(data)); // New version key
+                localStorage.setItem('bp_trip_ultimate_v3_8', JSON.stringify(data)); // Version 3.8
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -500,7 +510,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v3_6');
+                const saved = localStorage.getItem('bp_trip_ultimate_v3_8');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
@@ -533,16 +543,17 @@
                             isSyncing.value = true;
                         }
                     });
-                    alert('🔥 Connected! (Auto-Trimmed & Fixed)');
+                    console.log('🔥 Connected!');
                 } catch(e) { 
-                    alert('CONFIG ERROR: 無法解析 JSON，請檢查格式 (Ensure double quotes ")'); 
-                    console.error("Firebase Config Error:", e);
+                    alert('CONFIG ERROR: ' + e.message); 
                 }
             };
 
             onMounted(() => {
                 loadLocalData(); 
-                if(firebaseConfigStr.value) initFirebase();
+                if(firebaseConfigStr.value) {
+                    setTimeout(initFirebase, 500); 
+                }
                 setTimeout(fetchWeather, 1000);
             });
 
