@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v3.1</title>
+    <title>Trip.OS v3.2</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -39,11 +39,19 @@
     <style>
         body {
             background-color: #f3f4f6;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+            background-image: url("image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 針對 Safari 日期輸入框的專屬修復 */
+        input[type="date"] {
+            -webkit-appearance: none;
+            min-width: 0;
+            display: block;
+            width: 100%;
+        }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -185,34 +193,37 @@
 
         <!-- 4. 設定 (SET) -->
         <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in">
-            <div class="bg-white border-2 border-black shadow-hard p-4 space-y-3 w-full box-border">
+            <!-- 修正：加入 w-full 和 overflow-hidden 屬性強制約束子元素寬度 -->
+            <div class="bg-white border-2 border-black shadow-hard p-4 space-y-3 w-full box-border overflow-hidden">
                 <h3 class="font-black border-b-2 border-black pb-2">SETTINGS</h3>
-                <!-- 修正：日期輸入框寬度調整為 w-full，但限制 max-w 以防過長，視覺上更平衡 -->
-                <div>
+                
+                <!-- 修正：針對 Safari 加入 w-full 和 min-w-0 強制重置 -->
+                <div class="w-full">
                     <label class="block font-bold text-xs mb-1">出發日 Start Date</label>
-                    <input type="date" v-model="settings.startDate" class="w-full border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" @change="saveData">
+                    <input type="date" v-model="settings.startDate" class="w-full min-w-0 block border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none appearance-none" @change="saveData">
                 </div>
-                <div>
+                
+                <div class="w-full">
                     <label class="block font-bold text-xs mb-1">旅遊天數 Duration (Days)</label>
-                    <input type="number" v-model="settings.tripDays" class="w-full border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" min="1" max="30" @change="saveData">
+                    <input type="number" v-model="settings.tripDays" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" min="1" max="30" @change="saveData">
                 </div>
-                <div>
+                <div class="w-full">
                     <label class="block font-bold text-xs mb-1">OpenWeather API Key</label>
-                    <input v-model="weatherApiKey" placeholder="Paste Key Here..." class="w-full border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
+                    <input v-model="weatherApiKey" placeholder="Paste Key Here..." class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
                 </div>
-                <div>
+                <div class="w-full">
                     <label class="block font-bold text-xs mb-1">Firebase Config (JSON)</label>
-                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full h-20 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
+                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-20 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
                 </div>
                 <button @click="initFirebase" class="w-full bg-black text-white border-2 border-black py-2.5 font-bold hover:bg-gray-800 transition-colors text-sm">CONNECT & SAVE</button>
             </div>
             
-             <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.1 ULTIMATE</div>
+             <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.2 ULTIMATE</div>
         </div>
 
     </main>
 
-    <!-- 底部新增按鈕 (只在 Itinerary 出現, 位置上移) -->
+    <!-- 底部新增按鈕 -->
     <div v-if="currentTab === 'itinerary'" class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
         <div v-if="showAddMenu" class="pointer-events-auto mb-2 w-full bg-white border-2 border-black shadow-hard p-2 grid grid-cols-3 gap-2 animate-bounce-in">
             <button @click="openAddModal('attraction')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-camera text-lg mb-1"></i><span class="text-[10px] font-bold">景點</span></button>
@@ -224,7 +235,7 @@
         </button>
     </div>
 
-    <!-- 底部導航 (縮小版) -->
+    <!-- 底部導航 -->
     <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-4 z-40">
         <button v-for="tab in ['itinerary','expense','bag','info']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[10px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
             <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-gear'}[tab]]"></i>
