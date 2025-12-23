@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v3.2</title>
+    <title>Trip.OS v3.4</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -44,61 +44,44 @@
             -webkit-tap-highlight-color: transparent;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* 針對 Safari 日期輸入框的專屬修復 */
-        input[type="date"] {
-            -webkit-appearance: none;
-            min-width: 0;
-            display: block;
-            width: 100%;
-        }
+        input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
 
 <div id="app" class="h-full max-w-md mx-auto bg-marble flex flex-col relative border-x-2 border-black">
     
-    <!-- 頂部 Header -->
+    <!-- Header -->
     <header class="p-3 border-b-2 border-black bg-white flex justify-between items-center z-20 shrink-0 h-14">
         <div class="flex items-center gap-2 overflow-hidden">
             <input v-if="isEditingTitle" v-model="settings.appTitle" @blur="isEditingTitle=false; saveData()" class="text-xl font-black italic tracking-tighter w-40 bg-gray-100 border-b-2 border-black focus:outline-none uppercase" ref="titleInput">
             <h1 v-else @click="editTitle" class="text-xl font-black italic tracking-tighter cursor-pointer uppercase truncate max-w-[200px]">{{ settings.appTitle || 'TRIP.OS' }} <i class="fa-solid fa-pen text-[10px] text-gray-400 align-top ml-1"></i></h1>
         </div>
-        
         <div class="flex gap-2 items-center">
             <div v-if="isSyncing" class="w-2 h-2 rounded-full bg-green-500 animate-pulse border border-black" title="Live Sync On"></div>
-            <button @click="showGlobalCalc = true" class="w-8 h-8 bg-black text-neon-pink border-2 border-black rounded-full flex items-center justify-center shadow-hard active:translate-y-1 active:shadow-none transition-transform">
-                <i class="fa-solid fa-calculator text-sm"></i>
-            </button>
+            <button @click="showGlobalCalc = true" class="w-8 h-8 bg-black text-neon-pink border-2 border-black rounded-full flex items-center justify-center shadow-hard active:translate-y-1 active:shadow-none transition-transform"><i class="fa-solid fa-calculator text-sm"></i></button>
         </div>
     </header>
 
-    <!-- 內容區 -->
+    <!-- Main Content -->
     <main class="flex-1 overflow-y-auto p-3 pb-20 no-scrollbar space-y-4">
         
-        <!-- 1. 行程 Tab -->
+        <!-- 1. ITINERARY -->
         <div v-if="currentTab === 'itinerary'" class="space-y-3 animate-bounce-in">
             <div class="flex space-x-2 overflow-x-auto pb-1 no-scrollbar">
-                <div v-for="(day, index) in tripDays" :key="index" 
-                     @click="selectedDayIndex = index"
-                     :class="['flex-shrink-0 px-3 py-1.5 border-2 border-black font-bold text-xs cursor-pointer transition-all shadow-hard-sm', 
-                              selectedDayIndex === index ? 'bg-neon-pink text-black translate-x-[1px] translate-y-[1px] shadow-none' : 'bg-white']">
+                <div v-for="(day, index) in tripDays" :key="index" @click="selectedDayIndex = index"
+                     :class="['flex-shrink-0 px-3 py-1.5 border-2 border-black font-bold text-xs cursor-pointer transition-all shadow-hard-sm', selectedDayIndex === index ? 'bg-neon-pink text-black translate-x-[1px] translate-y-[1px] shadow-none' : 'bg-white']">
                     {{ day.dateLabel }} <br> <span class="text-[10px] font-normal">Day {{ index + 1 }}</span>
                 </div>
             </div>
-
             <div class="bg-black text-white p-2 border-2 border-black shadow-hard flex justify-between items-center relative overflow-hidden h-16">
                 <div class="z-10">
                     <span class="text-[10px] text-neon-pink uppercase font-bold">Weather in {{ firstLocationToday || '...' }}</span>
-                    <div class="font-bold text-sm flex items-center gap-2">
-                         {{ currentWeather ? `${Math.round(currentWeather.main.temp)}°C` : 'N/A' }}
-                         <span class="text-[10px] font-normal text-gray-300" v-if="currentWeather">{{ currentWeather.weather[0].description }}</span>
-                    </div>
+                    <div class="font-bold text-sm flex items-center gap-2">{{ currentWeather ? `${Math.round(currentWeather.main.temp)}°C` : 'N/A' }} <span class="text-[10px] font-normal text-gray-300" v-if="currentWeather">{{ currentWeather.weather[0].description }}</span></div>
                 </div>
                 <i class="fa-solid fa-cloud-sun text-3xl text-neon-pink opacity-80 z-10"></i>
                 <button @click="fetchWeather" class="absolute right-1 top-1 text-gray-500 text-[10px] z-20 p-2"><i class="fa-solid fa-rotate"></i></button>
             </div>
-
             <div class="relative pl-3 border-l-2 border-black ml-1 space-y-4">
                 <div v-for="item in filteredItinerary" :key="item.id" class="relative group">
                     <div class="absolute -left-[19px] top-3 w-3 h-3 bg-neon-pink border-2 border-black rounded-full"></div>
@@ -119,7 +102,7 @@
             </div>
         </div>
 
-        <!-- 2. 記帳 Tab (EXPENSE) -->
+        <!-- 2. EXPENSE -->
         <div v-if="currentTab === 'expense'" class="space-y-4 animate-bounce-in">
             <div class="bg-white border-2 border-black shadow-hard p-3 space-y-2 w-full box-border">
                 <div class="flex justify-between items-end border-b-2 border-black pb-2 mb-1">
@@ -132,23 +115,34 @@
                     <span>Rate: {{ currentRate }}</span>
                     <span>≈ HKD {{ (parseFloat(calcDisplay || 0) * currentRate).toFixed(2) }}</span>
                 </div>
-                
                 <div class="grid grid-cols-4 gap-1.5">
-                    <button v-for="btn in ['7','8','9','/','4','5','6','*','1','2','3','-','C','0','.','+']" 
-                            @click="handleCalcInput(btn)"
-                            class="h-10 border-2 border-black font-bold active:bg-neon-pink shadow-hard-sm active:shadow-none bg-white text-base">{{ btn }}</button>
+                    <button v-for="btn in ['7','8','9','/','4','5','6','*','1','2','3','-','C','0','.','+']" @click="handleCalcInput(btn)" class="h-10 border-2 border-black font-bold active:bg-neon-pink shadow-hard-sm active:shadow-none bg-white text-base">{{ btn }}</button>
                 </div>
-                
+                <!-- 付款人下拉選單 -->
                 <div class="flex gap-2 mt-2 w-full">
+                     <select v-model="expensePayer" class="border-2 border-black p-1.5 font-bold text-xs bg-neon-pink text-black rounded-none w-1/3">
+                        <option value="Me">Me</option>
+                        <option v-for="p in participants" :value="p">{{ p }}</option>
+                    </select>
                     <select v-model="expenseType" class="border-2 border-black p-1.5 font-bold text-xs bg-gray-100 rounded-none w-1/3">
                         <option value="cash">Cash</option>
                         <option value="card">Card</option>
                     </select>
-                    <input v-model="expenseNote" placeholder="項目 Item Name" class="border-2 border-black p-1.5 flex-1 font-bold text-xs rounded-none focus:bg-neon-pink/20 outline-none w-0">
+                    <input v-model="expenseNote" placeholder="項目 Item" class="border-2 border-black p-1.5 flex-1 font-bold text-xs rounded-none focus:bg-neon-pink/20 outline-none w-0">
                 </div>
-                <button @click="addExpense" class="w-full bg-neon-pink border-2 border-black py-2 font-black shadow-hard active:translate-y-1 active:shadow-none text-sm tracking-widest hover:bg-pink-300 transition-colors">
-                    記帳 SAVE
-                </button>
+                <button @click="addExpense" class="w-full bg-neon-pink border-2 border-black py-2 font-black shadow-hard active:translate-y-1 active:shadow-none text-sm tracking-widest hover:bg-pink-300 transition-colors">記帳 SAVE</button>
+            </div>
+
+            <!-- 支出統計 -->
+            <div class="bg-black text-white p-3 border-2 border-black shadow-hard text-xs font-bold space-y-1">
+                <div class="flex justify-between border-b border-gray-600 pb-1 mb-1">
+                    <span>TOTAL SPENT</span>
+                    <span>HKD {{ totalSpent }}</span>
+                </div>
+                <div v-for="(amount, person) in expenseStats" :key="person" class="flex justify-between text-gray-300 font-normal">
+                    <span>{{ person }} Paid:</span>
+                    <span>${{ amount }}</span>
+                </div>
             </div>
 
             <div class="space-y-2 mt-4">
@@ -156,7 +150,7 @@
                 <div v-for="exp in expenses" :key="exp.id" class="flex justify-between items-center bg-white border-2 border-black p-2 shadow-hard-sm">
                     <div class="truncate mr-2">
                         <div class="font-bold text-sm truncate">{{ exp.note }}</div>
-                        <div class="text-[10px] text-gray-500">{{ exp.date }} · {{ exp.currency }} · {{ exp.type === 'card' ? '💳' : '💵' }}</div>
+                        <div class="text-[10px] text-gray-500">{{ exp.date }} · {{ exp.currency }} · <span class="bg-black text-white px-1 text-[9px]">{{ exp.payer || 'Me' }}</span></div>
                     </div>
                     <div class="text-right shrink-0">
                         <div class="font-black text-sm">-HKD {{ exp.hkdAmount }}</div>
@@ -166,23 +160,18 @@
             </div>
         </div>
 
-        <!-- 3. 行李與手信 (BAG) -->
+        <!-- 3. BAG -->
         <div v-if="currentTab === 'bag'" class="space-y-4 animate-bounce-in">
              <div class="bg-white border-2 border-black shadow-hard p-3">
-                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
-                    LUGGAGE <button @click="addChecklistItem('bag')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-neon-pink hover:text-black">+ Add</button>
-                </h3>
+                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">LUGGAGE <button @click="addChecklistItem('bag')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-neon-pink hover:text-black">+ Add</button></h3>
                 <div v-for="item in bagList" :key="item.id" class="flex items-center gap-2 mb-1">
                     <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-neon-pink cursor-pointer">
-                    <input v-model="item.text" @change="saveData" class="border-b border-gray-300 w-full bg-transparent focus:outline-none font-bold focus:border-black text-sm p-1" placeholder="Item...">
+                    <input v-model="item.text" @change="saveData" class="border-b border-gray-300 w-full bg-transparent focus:outline-none font-bold text-sm p-1" placeholder="Item...">
                     <button @click="deleteItem('bagList', item.id)" class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-xmark"></i></button>
                 </div>
              </div>
-
              <div class="bg-neon-pink border-2 border-black shadow-hard p-3">
-                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
-                    SOUVENIRS <button @click="addChecklistItem('souvenir')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-white hover:text-black">+ Add</button>
-                </h3>
+                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">SOUVENIRS <button @click="addChecklistItem('souvenir')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-white hover:text-black">+ Add</button></h3>
                 <div v-for="item in souvenirList" :key="item.id" class="flex items-center gap-2 mb-1">
                     <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-white cursor-pointer">
                     <input v-model="item.text" @change="saveData" class="border-b border-black/20 w-full bg-transparent focus:outline-none font-bold placeholder-black/50 text-sm p-1" placeholder="Gift for...">
@@ -191,21 +180,46 @@
              </div>
         </div>
 
-        <!-- 4. 設定 (SET) -->
+        <!-- 4. INFO (NEW) -->
         <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in">
-            <!-- 修正：加入 w-full 和 overflow-hidden 屬性強制約束子元素寬度 -->
+            <!-- 資訊方塊列表 -->
+            <div v-for="item in infoList" :key="item.id" class="bg-white border-2 border-black shadow-hard p-3 relative">
+                <div class="flex justify-between items-start mb-2 border-b-2 border-black pb-1">
+                    <span class="bg-black text-white text-[10px] px-2 py-0.5 font-bold uppercase">{{ item.category }}</span>
+                    <div class="space-x-2">
+                         <button @click="openInfoEditModal(item)" class="text-gray-500 hover:text-blue-600 text-[10px]"><i class="fa-solid fa-pen"></i></button>
+                         <button @click="deleteItem('infoList', item.id)" class="text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="font-bold text-sm whitespace-pre-line">{{ item.content }}</div>
+                <div class="text-[10px] text-gray-500 mt-1 font-bold">{{ item.title }}</div>
+            </div>
+            <div v-if="infoList.length === 0" class="text-center text-gray-400 text-xs italic mt-10">No Info Added Yet...</div>
+            
+            <!-- ADD NEW INFO BUTTON -->
+             <div class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
+                <button @click="openInfoAddModal" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">
+                    ADD INFO
+                </button>
+            </div>
+        </div>
+
+        <!-- 5. SETTING (Old Info) -->
+        <div v-if="currentTab === 'setting'" class="space-y-4 animate-bounce-in">
             <div class="bg-white border-2 border-black shadow-hard p-4 space-y-3 w-full box-border overflow-hidden">
                 <h3 class="font-black border-b-2 border-black pb-2">SETTINGS</h3>
-                
-                <!-- 修正：針對 Safari 加入 w-full 和 min-w-0 強制重置 -->
                 <div class="w-full">
                     <label class="block font-bold text-xs mb-1">出發日 Start Date</label>
                     <input type="date" v-model="settings.startDate" class="w-full min-w-0 block border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none appearance-none" @change="saveData">
                 </div>
-                
                 <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">旅遊天數 Duration (Days)</label>
+                    <label class="block font-bold text-xs mb-1">旅遊天數 Duration</label>
                     <input type="number" v-model="settings.tripDays" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" min="1" max="30" @change="saveData">
+                </div>
+                <!-- 參與者設定 -->
+                <div class="w-full">
+                    <label class="block font-bold text-xs mb-1">同行者 Participants (用逗號分隔)</label>
+                    <input v-model="participantsInput" @blur="updateParticipants" placeholder="e.g. Leo, Amy, John" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none">
                 </div>
                 <div class="w-full">
                     <label class="block font-bold text-xs mb-1">OpenWeather API Key</label>
@@ -213,42 +227,40 @@
                 </div>
                 <div class="w-full">
                     <label class="block font-bold text-xs mb-1">Firebase Config (JSON)</label>
-                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-20 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
+                    <textarea v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 h-16 p-2 text-[10px] border-2 border-black bg-gray-50 focus:bg-white rounded-none"></textarea>
                 </div>
-                <button @click="initFirebase" class="w-full bg-black text-white border-2 border-black py-2.5 font-bold hover:bg-gray-800 transition-colors text-sm">CONNECT & SAVE</button>
+                
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button @click="initFirebase" class="bg-black text-white border-2 border-black py-2 font-bold hover:bg-gray-800 text-xs">CONNECT CLOUD</button>
+                    <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
+                </div>
             </div>
-            
-             <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.2 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.4 ULTIMATE</div>
         </div>
-
     </main>
 
-    <!-- 底部新增按鈕 -->
+    <!-- 底部新增按鈕 (Itinerary Only) -->
     <div v-if="currentTab === 'itinerary'" class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
         <div v-if="showAddMenu" class="pointer-events-auto mb-2 w-full bg-white border-2 border-black shadow-hard p-2 grid grid-cols-3 gap-2 animate-bounce-in">
             <button @click="openAddModal('attraction')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-camera text-lg mb-1"></i><span class="text-[10px] font-bold">景點</span></button>
             <button @click="openAddModal('food')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-utensils text-lg mb-1"></i><span class="text-[10px] font-bold">餐廳</span></button>
             <button @click="openAddModal('transport')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-train text-lg mb-1"></i><span class="text-[10px] font-bold">交通</span></button>
         </div>
-        <button @click="showAddMenu = !showAddMenu" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">
-            {{ showAddMenu ? 'CLOSE' : 'ADD NEW' }}
-        </button>
+        <button @click="showAddMenu = !showAddMenu" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">{{ showAddMenu ? 'CLOSE' : 'ADD NEW' }}</button>
     </div>
 
     <!-- 底部導航 -->
-    <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-4 z-40">
-        <button v-for="tab in ['itinerary','expense','bag','info']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[10px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
-            <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-gear'}[tab]]"></i>
-            {{ tab === 'expense' ? 'EXPENSE' : tab.toUpperCase() }}
+    <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-5 z-40">
+        <button v-for="tab in ['itinerary','expense','bag','info','setting']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[9px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
+            <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-circle-info','setting':'fa-gear'}[tab]]"></i>
+            {{ tab.toUpperCase() }}
         </button>
     </nav>
 
-    <!-- 新增/修改 Modal -->
+    <!-- Itinerary Add/Edit Modal -->
     <div v-if="showModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-4 space-y-3 animate-bounce-in box-border">
-            <h3 class="font-black text-sm bg-neon-pink inline-block px-2 border-2 border-black transform -rotate-2">
-                {{ editingId ? 'EDIT ITEM' : 'NEW ' + newItem.type.toUpperCase() }}
-            </h3>
+            <h3 class="font-black text-sm bg-neon-pink inline-block px-2 border-2 border-black transform -rotate-2">{{ editingId ? 'EDIT ITEM' : 'NEW ' + newItem.type.toUpperCase() }}</h3>
             <div class="space-y-2">
                 <input v-model="newItem.title" placeholder="名稱 Title" class="w-full border-2 border-black p-2 font-bold rounded-none text-sm">
                 <div class="flex gap-2">
@@ -263,7 +275,28 @@
         </div>
     </div>
     
-    <!-- 全域匯率計算機 (懸浮) -->
+    <!-- Info Add/Edit Modal -->
+    <div v-if="showInfoModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-4 space-y-3 animate-bounce-in box-border">
+            <h3 class="font-black text-sm bg-neon-pink inline-block px-2 border-2 border-black transform -rotate-2">{{ editingId ? 'EDIT INFO' : 'NEW INFO' }}</h3>
+            <div class="space-y-2">
+                <select v-model="newInfo.category" class="w-full border-2 border-black p-2 font-bold rounded-none text-sm bg-gray-100">
+                    <option value="Flight">✈️ 航班 Flight</option>
+                    <option value="Hotel">🏨 住宿 Hotel</option>
+                    <option value="Emergency">🆘 緊急 Emergency</option>
+                    <option value="Other">📝 其他 Other</option>
+                </select>
+                <input v-model="newInfo.title" placeholder="標題 (e.g. CX888 / Hilton)" class="w-full border-2 border-black p-2 font-bold rounded-none text-sm">
+                <textarea v-model="newInfo.content" placeholder="內容詳情..." class="w-full h-24 border-2 border-black p-2 font-bold rounded-none text-sm"></textarea>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button @click="saveNewInfo" class="flex-1 bg-black text-white border-2 border-black py-2 font-bold hover:bg-gray-800 text-sm">CONFIRM</button>
+                <button @click="showInfoModal = false" class="flex-1 bg-white border-2 border-black py-2 font-bold hover:bg-gray-100 text-sm">CANCEL</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Calculator -->
     <div v-if="showGlobalCalc" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" @click.self="showGlobalCalc = false">
         <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-5 space-y-3 animate-bounce-in">
             <h3 class="font-black text-lg text-center border-b-2 border-black pb-2">QUICK RATE</h3>
@@ -290,40 +323,41 @@
             const currentTab = ref('itinerary');
             const showAddMenu = ref(false);
             const showModal = ref(false);
+            const showInfoModal = ref(false);
             const showGlobalCalc = ref(false);
             const selectedDayIndex = ref(0);
             const isSyncing = ref(false);
             const isEditingTitle = ref(false);
             const titleInput = ref(null);
-            
-            // Edit Logic
             const editingId = ref(null);
 
-            // Settings Data
+            // Data
             const settings = ref({ appTitle: 'TRIP.OS', startDate: new Date().toISOString().split('T')[0], tripDays: 5 });
-
-            // Currency Data
-            const currencyRates = ref({ 'JPY': 0.052, 'KRW': 0.0058, 'TWD': 0.24, 'THB': 0.22, 'CNY': 1.08, 'EUR': 8.5, 'GBP': 9.8, 'USD': 7.8, 'AUD': 5.2, 'SGD': 5.8 });
+            const participantsInput = ref('');
+            const participants = ref([]);
+            
+            const currencyRates = ref({ 'JPY': 0.052, 'KRW': 0.0058, 'TWD': 0.24, 'THB': 0.22, 'CNY': 1.08, 'EUR': 8.5, 'GBP': 9.8, 'USD': 7.8, 'AUD': 5.2, 'SGD': 5.8, 'HKD': 1.0 });
             const selectedCurrency = ref('JPY');
             const currentRate = computed(() => currencyRates.value[selectedCurrency.value]);
 
-            // App Data
             const itinerary = ref([]);
             const expenses = ref([]);
             const bagList = ref([{id: 1, text: 'Passport', checked: false}]);
             const souvenirList = ref([{id: 1, text: 'Tokyo Banana', checked: false}]);
+            const infoList = ref([]); // New Info List
             
-            // Configs
             const firebaseConfigStr = ref('');
             const weatherApiKey = ref('');
             const currentWeather = ref(null);
 
-            // Temp Inputs
             const calcDisplay = ref('');
             const expenseType = ref('cash');
+            const expensePayer = ref('Me');
             const expenseNote = ref('');
             const globalCalcInput = ref('');
+            
             const newItem = ref({ type: 'attraction', title: '', time: '10:00', location: '' });
+            const newInfo = ref({ category: 'Flight', title: '', content: '' });
 
             // Computed
             const tripDays = computed(() => {
@@ -347,9 +381,30 @@
                 return item ? item.location : '';
             });
 
+            // Expense Stats
+            const totalSpent = computed(() => expenses.value.reduce((acc, curr) => acc + parseFloat(curr.hkdAmount), 0).toFixed(1));
+            const expenseStats = computed(() => {
+                const stats = { 'Me': 0 };
+                participants.value.forEach(p => stats[p] = 0);
+                expenses.value.forEach(exp => {
+                    const p = exp.payer || 'Me';
+                    if(stats[p] === undefined) stats[p] = 0;
+                    stats[p] += parseFloat(exp.hkdAmount);
+                });
+                // Rounding
+                for(let p in stats) stats[p] = stats[p].toFixed(1);
+                return stats;
+            });
+
             // Methods
             const editTitle = () => { isEditingTitle.value = true; nextTick(() => titleInput.value.focus()); };
             
+            const updateParticipants = () => {
+                const arr = participantsInput.value.split(/[,，]/).map(s => s.trim()).filter(s => s);
+                participants.value = [...new Set(arr)]; // unique
+                saveData();
+            };
+
             const fetchWeather = async () => {
                 const loc = firstLocationToday.value;
                 if(!loc || !weatherApiKey.value) { currentWeather.value = null; return; }
@@ -379,35 +434,37 @@
                     if(!amount) return;
                     expenses.value.unshift({
                         id: Date.now(), hkdAmount: (amount * currentRate.value).toFixed(1), currency: selectedCurrency.value,
-                        note: expenseNote.value || 'Expense', type: expenseType.value, date: new Date().toLocaleDateString()
+                        note: expenseNote.value || 'Expense', type: expenseType.value, payer: expensePayer.value, date: new Date().toLocaleDateString()
                     });
                     calcDisplay.value=''; expenseNote.value=''; saveData();
                 } catch(e){}
             };
 
-            const openAddModal = (type) => { 
-                editingId.value = null;
-                newItem.value={type, title:'', time:'12:00', location:''}; 
-                showModal.value=true; showAddMenu.value=false; 
-            };
-
-            const openEditModal = (item) => {
-                editingId.value = item.id;
-                newItem.value = { ...item };
-                showModal.value = true;
-            };
-            
+            // Itinerary CRUD
+            const openAddModal = (type) => { editingId.value = null; newItem.value={type, title:'', time:'12:00', location:''}; showModal.value=true; showAddMenu.value=false; };
+            const openEditModal = (item) => { editingId.value = item.id; newItem.value = { ...item }; showModal.value = true; };
             const saveNewItem = () => {
                 if (editingId.value) {
                     const idx = itinerary.value.findIndex(i => i.id === editingId.value);
-                    if (idx !== -1) {
-                        itinerary.value[idx] = { ...itinerary.value[idx], ...newItem.value };
-                    }
+                    if (idx !== -1) itinerary.value[idx] = { ...itinerary.value[idx], ...newItem.value };
                 } else {
                     const dateStr = tripDays.value[selectedDayIndex.value]?.dateStr || settings.value.startDate;
                     itinerary.value.push({ id: Date.now(), date: dateStr, ...newItem.value });
                 }
                 showModal.value = false; saveData();
+            };
+
+            // Info CRUD
+            const openInfoAddModal = () => { editingId.value = null; newInfo.value={category:'Flight', title:'', content:''}; showInfoModal.value=true; };
+            const openInfoEditModal = (item) => { editingId.value = item.id; newInfo.value = { ...item }; showInfoModal.value = true; };
+            const saveNewInfo = () => {
+                if (editingId.value) {
+                    const idx = infoList.value.findIndex(i => i.id === editingId.value);
+                    if (idx !== -1) infoList.value[idx] = { ...infoList.value[idx], ...newInfo.value };
+                } else {
+                    infoList.value.push({ id: Date.now(), ...newInfo.value });
+                }
+                showInfoModal.value = false; saveData();
             };
 
             const deleteItem = (list, id) => {
@@ -416,77 +473,78 @@
                 if(list==='expenses') expenses.value = expenses.value.filter(i=>i.id!==id);
                 if(list==='bagList') bagList.value = bagList.value.filter(i=>i.id!==id);
                 if(list==='souvenirList') souvenirList.value = souvenirList.value.filter(i=>i.id!==id);
+                if(list==='infoList') infoList.value = infoList.value.filter(i=>i.id!==id);
                 saveData();
             };
+            const addChecklistItem = (type) => { type==='bag' ? bagList.value.push({id:Date.now(),text:'',checked:false}) : souvenirList.value.push({id:Date.now(),text:'',checked:false}); };
 
-            const addChecklistItem = (type) => {
-                const item = {id: Date.now(), text: '', checked: false};
-                if(type === 'bag') bagList.value.push(item);
-                else souvenirList.value.push(item);
-            };
+            // Storage & Export
+            const getStorageData = () => ({
+                itinerary: itinerary.value, expenses: expenses.value, 
+                bagList: bagList.value, souvenirList: souvenirList.value, infoList: infoList.value,
+                settings: settings.value, participants: participants.value, 
+                weatherApiKey: weatherApiKey.value, firebaseConfigStr: firebaseConfigStr.value 
+            });
 
             const saveData = async () => {
-                const data = { 
-                    itinerary: itinerary.value, expenses: expenses.value, 
-                    bagList: bagList.value, souvenirList: souvenirList.value,
-                    settings: settings.value, weatherApiKey: weatherApiKey.value, 
-                    firebaseConfigStr: firebaseConfigStr.value 
-                };
-                localStorage.setItem('bp_trip_ultimate_v3', JSON.stringify(data));
-                if(window.db && firebaseConfigStr.value) {
-                    try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){}
-                }
+                const data = getStorageData();
+                localStorage.setItem('bp_trip_ultimate_v3_4', JSON.stringify(data));
+                if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
+            };
+
+            const exportJSON = () => {
+                const dataStr = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getStorageData(), null, 2));
+                const a = document.createElement('a');
+                a.setAttribute("href", dataStr);
+                a.setAttribute("download", `trip_backup_${new Date().toISOString().slice(0,10)}.json`);
+                document.body.appendChild(a); a.click(); a.remove();
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v3');
+                const saved = localStorage.getItem('bp_trip_ultimate_v3_4');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
-                    bagList.value = data.bagList||[]; souvenirList.value = data.souvenirList||[];
+                    bagList.value = data.bagList||[]; souvenirList.value = data.souvenirList||[]; infoList.value = data.infoList||[];
                     settings.value = {...settings.value, ...data.settings};
+                    participants.value = data.participants || [];
+                    participantsInput.value = participants.value.join(', ');
                     weatherApiKey.value = data.weatherApiKey||''; firebaseConfigStr.value = data.firebaseConfigStr||'';
                 }
             };
 
             const initFirebase = async () => {
-                const str = firebaseConfigStr.value.trim();
-                if(!str) return;
+                const str = firebaseConfigStr.value.trim(); if(!str) return;
                 try {
-                    saveData();
-                    const config = JSON.parse(str);
-                    const app = window.fb.initializeApp(config);
-                    window.db = window.fb.getFirestore(app);
+                    saveData(); const config = JSON.parse(str);
+                    const app = window.fb.initializeApp(config); window.db = window.fb.getFirestore(app);
                     window.fb.onSnapshot(window.fb.doc(window.db, "trips", "myTrip"), (doc) => {
                         if (doc.exists()) {
                             const data = doc.data();
                             itinerary.value = data.itinerary; expenses.value = data.expenses;
-                            bagList.value = data.bagList; souvenirList.value = data.souvenirList;
-                            settings.value = data.settings;
+                            bagList.value = data.bagList; souvenirList.value = data.souvenirList; infoList.value = data.infoList || [];
+                            settings.value = data.settings; participants.value = data.participants || [];
+                            participantsInput.value = participants.value.join(', ');
                             isSyncing.value = true;
                         }
                     });
                     alert('🔥 Connected!');
-                } catch(e) { 
-                    alert('CONFIG ERROR: 請檢查 JSON 格式是否正確'); 
-                    console.error(e);
-                }
+                } catch(e) { alert('Config Error'); }
             };
 
             onMounted(() => {
-                loadLocalData();
-                if(firebaseConfigStr.value) initFirebase();
+                loadLocalData(); if(firebaseConfigStr.value) initFirebase();
                 setTimeout(fetchWeather, 1000);
             });
 
             return {
-                currentTab, showAddMenu, showModal, showGlobalCalc, isSyncing, isEditingTitle, titleInput,
-                settings, tripDays, selectedDayIndex, itinerary, filteredItinerary, expenses, bagList, souvenirList,
-                calcDisplay, handleCalcInput, addExpense, expenseType, expenseNote,
-                newItem, openAddModal, openEditModal, saveNewItem, deleteItem, addChecklistItem, editingId,
+                currentTab, showAddMenu, showModal, showInfoModal, showGlobalCalc, isSyncing, isEditingTitle, titleInput, editingId,
+                settings, tripDays, selectedDayIndex, itinerary, filteredItinerary, expenses, bagList, souvenirList, infoList,
+                calcDisplay, handleCalcInput, addExpense, expenseType, expenseNote, expensePayer, totalSpent, expenseStats,
+                newItem, newInfo, openAddModal, openEditModal, openInfoAddModal, openInfoEditModal, saveNewItem, saveNewInfo, deleteItem, addChecklistItem,
                 currencyRates, selectedCurrency, currentRate, updateRate, globalCalcInput,
-                firebaseConfigStr, initFirebase, weatherApiKey, currentWeather,
-                openMap, getIcon, saveData, fetchWeather, firstLocationToday, editTitle
+                firebaseConfigStr, initFirebase, weatherApiKey, currentWeather, participantsInput, updateParticipants, participants,
+                openMap, getIcon, saveData, exportJSON, fetchWeather, firstLocationToday, editTitle
             };
         }
     }).mount('#app');
