@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v3.4</title>
-    <link rel="apple-touch-icon" href="IMG_9655.jpeg">
+    <title>Trip.OS v3.6</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -14,6 +13,9 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     
+    <!-- iPhone Home Screen Icon (Updated) -->
+    <link rel="apple-touch-icon" href="IMG_9655.jpeg">
+
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
@@ -236,7 +238,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.4 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v3.6 ULTIMATE</div>
         </div>
     </main>
 
@@ -345,7 +347,7 @@
             const expenses = ref([]);
             const bagList = ref([{id: 1, text: 'Passport', checked: false}]);
             const souvenirList = ref([{id: 1, text: 'Tokyo Banana', checked: false}]);
-            const infoList = ref([]); // New Info List
+            const infoList = ref([]);
             
             const firebaseConfigStr = ref('');
             const weatherApiKey = ref('');
@@ -392,7 +394,6 @@
                     if(stats[p] === undefined) stats[p] = 0;
                     stats[p] += parseFloat(exp.hkdAmount);
                 });
-                // Rounding
                 for(let p in stats) stats[p] = stats[p].toFixed(1);
                 return stats;
             });
@@ -402,7 +403,7 @@
             
             const updateParticipants = () => {
                 const arr = participantsInput.value.split(/[,，]/).map(s => s.trim()).filter(s => s);
-                participants.value = [...new Set(arr)]; // unique
+                participants.value = [...new Set(arr)];
                 saveData();
             };
 
@@ -441,7 +442,7 @@
                 } catch(e){}
             };
 
-            // Itinerary CRUD
+            // CRUD
             const openAddModal = (type) => { editingId.value = null; newItem.value={type, title:'', time:'12:00', location:''}; showModal.value=true; showAddMenu.value=false; };
             const openEditModal = (item) => { editingId.value = item.id; newItem.value = { ...item }; showModal.value = true; };
             const saveNewItem = () => {
@@ -455,7 +456,6 @@
                 showModal.value = false; saveData();
             };
 
-            // Info CRUD
             const openInfoAddModal = () => { editingId.value = null; newInfo.value={category:'Flight', title:'', content:''}; showInfoModal.value=true; };
             const openInfoEditModal = (item) => { editingId.value = item.id; newInfo.value = { ...item }; showInfoModal.value = true; };
             const saveNewInfo = () => {
@@ -479,7 +479,7 @@
             };
             const addChecklistItem = (type) => { type==='bag' ? bagList.value.push({id:Date.now(),text:'',checked:false}) : souvenirList.value.push({id:Date.now(),text:'',checked:false}); };
 
-            // Storage & Export
+            // Storage
             const getStorageData = () => ({
                 itinerary: itinerary.value, expenses: expenses.value, 
                 bagList: bagList.value, souvenirList: souvenirList.value, infoList: infoList.value,
@@ -489,52 +489,60 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v3_4', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v3_6', JSON.stringify(data)); // New version key
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
             const exportJSON = () => {
                 const dataStr = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getStorageData(), null, 2));
-                const a = document.createElement('a');
-                a.setAttribute("href", dataStr);
-                a.setAttribute("download", `trip_backup_${new Date().toISOString().slice(0,10)}.json`);
+                const a = document.createElement('a'); a.setAttribute("href", dataStr); a.setAttribute("download", `trip_backup.json`);
                 document.body.appendChild(a); a.click(); a.remove();
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v3_4');
+                const saved = localStorage.getItem('bp_trip_ultimate_v3_6');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
                     bagList.value = data.bagList||[]; souvenirList.value = data.souvenirList||[]; infoList.value = data.infoList||[];
                     settings.value = {...settings.value, ...data.settings};
-                    participants.value = data.participants || [];
-                    participantsInput.value = participants.value.join(', ');
+                    participants.value = data.participants || []; participantsInput.value = participants.value.join(', ');
                     weatherApiKey.value = data.weatherApiKey||''; firebaseConfigStr.value = data.firebaseConfigStr||'';
                 }
             };
 
             const initFirebase = async () => {
-                const str = firebaseConfigStr.value.trim(); if(!str) return;
+                let str = firebaseConfigStr.value.trim();
+                if(!str) return;
+                
+                if(str.startsWith("'") && str.endsWith("'")) str = str.slice(1, -1);
+                
                 try {
-                    saveData(); const config = JSON.parse(str);
-                    const app = window.fb.initializeApp(config); window.db = window.fb.getFirestore(app);
+                    saveData();
+                    const config = JSON.parse(str);
+                    const app = window.fb.initializeApp(config);
+                    window.db = window.fb.getFirestore(app);
+                    
                     window.fb.onSnapshot(window.fb.doc(window.db, "trips", "myTrip"), (doc) => {
                         if (doc.exists()) {
                             const data = doc.data();
-                            itinerary.value = data.itinerary; expenses.value = data.expenses;
-                            bagList.value = data.bagList; souvenirList.value = data.souvenirList; infoList.value = data.infoList || [];
-                            settings.value = data.settings; participants.value = data.participants || [];
+                            itinerary.value = data.itinerary || []; expenses.value = data.expenses || [];
+                            bagList.value = data.bagList || []; souvenirList.value = data.souvenirList || []; infoList.value = data.infoList || [];
+                            settings.value = data.settings || {}; participants.value = data.participants || [];
                             participantsInput.value = participants.value.join(', ');
                             isSyncing.value = true;
                         }
                     });
-                    alert('🔥 Connected!');
-                } catch(e) { alert('Config Error'); }
+                    alert('🔥 Connected! (Auto-Trimmed & Fixed)');
+                } catch(e) { 
+                    alert('CONFIG ERROR: 無法解析 JSON，請檢查格式 (Ensure double quotes ")'); 
+                    console.error("Firebase Config Error:", e);
+                }
             };
 
             onMounted(() => {
-                loadLocalData(); if(firebaseConfigStr.value) initFirebase();
+                loadLocalData(); 
+                if(firebaseConfigStr.value) initFirebase();
                 setTimeout(fetchWeather, 1000);
             });
 
@@ -552,4 +560,3 @@
 </script>
 </body>
 </html>
-
