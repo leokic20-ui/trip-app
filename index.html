@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v4.1</title>
+    <title>Trip.OS v4.2</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -54,17 +54,30 @@
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
+            /* 禁止全域文字選取，這是解決拖曳誤選文字的關鍵 */
+            -webkit-user-select: none;
             user-select: none;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
         input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
         
-        /* 禁止按鈕雙擊放大 (Critical Fix) */
         button { touch-action: manipulation; }
 
+        /* 針對行程卡片的特殊處理：禁止選取文字，禁止 iOS 長按選單 */
+        .draggable-item {
+            -webkit-touch-callout: none; /* iOS Safari 禁止長按選單 */
+            -webkit-user-select: none;   /* Chrome/Safari/Opera */
+            user-select: none;
+            touch-action: pan-y; /* 允許垂直滾動，但防止左右手勢干擾 */
+        }
+
+        /* 拖曳時的樣式 */
         .sortable-ghost { opacity: 0.4; background: #ddd; border: 2px dashed #000; }
-        .sortable-drag { cursor: grabbing; opacity: 1; transform: scale(1.02); box-shadow: 5px 5px 0px 0px rgba(0,0,0,0.5); }
+        .sortable-drag { cursor: grabbing; opacity: 1; transform: scale(1.02); box-shadow: 5px 5px 0px 0px rgba(0,0,0,0.5); z-index: 50; }
+        
+        /* 允許輸入框選取文字 */
+        input, textarea { -webkit-user-select: text; user-select: text; }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -124,10 +137,10 @@
 
             <!-- ITINERARY LIST -->
             <div ref="itineraryListRef" class="relative space-y-4 pb-2">
-                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group cursor-grab active:cursor-grabbing">
+                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group cursor-grab active:cursor-grabbing draggable-item">
                     <!-- Timeline Dot -->
-                    <div class="absolute -left-[9px] top-4 w-3 h-3 bg-black border border-white rounded-full z-10"></div>
-                    <div class="absolute left-[-4px] top-6 bottom-[-20px] w-0.5 bg-black/20 z-0"></div>
+                    <div class="absolute -left-[9px] top-4 w-3 h-3 bg-black border border-white rounded-full z-10 pointer-events-none"></div>
+                    <div class="absolute left-[-4px] top-6 bottom-[-20px] w-0.5 bg-black/20 z-0 pointer-events-none"></div>
 
                     <!-- Card Body -->
                     <div :class="['bg-white border-2 border-black p-3 shadow-hard relative transition-all ml-3', 
@@ -135,16 +148,16 @@
                         item.type === 'transport' ? 'bg-blue-50 border-dashed' : '']">
                         
                         <!-- Header -->
-                        <div class="flex justify-between items-start mb-1">
+                        <div class="flex justify-between items-start mb-1 pointer-events-none">
                             <span class="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold font-mono tracking-tighter">{{ item.time }}</span>
-                            <div class="space-x-3 pr-8">
-                                <button @click="openEditModal(item)" class="text-gray-400 hover:text-black text-xs"><i class="fa-solid fa-pen"></i></button>
-                                <button @click="deleteItem('itinerary', item.id)" class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
+                            <div class="space-x-3 pr-8 pointer-events-auto">
+                                <button @click="openEditModal(item)" class="text-gray-400 hover:text-black text-xs p-1"><i class="fa-solid fa-pen"></i></button>
+                                <button @click="deleteItem('itinerary', item.id)" class="text-gray-400 hover:text-red-500 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
 
                         <!-- Content -->
-                        <div class="pr-10">
+                        <div class="pr-10 pointer-events-none">
                             <h3 class="font-black text-lg leading-tight mb-1">{{ item.title }}</h3>
                             <p v-if="item.remarks" class="text-xs text-gray-500 font-medium mb-1 line-clamp-2">{{ item.remarks }}</p>
                             <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-600 mt-2 bg-black/5 inline-block px-1.5 py-0.5 rounded">
@@ -153,7 +166,7 @@
                         </div>
 
                         <!-- NAV BUTTON -->
-                        <button @click.stop="openMap(item.location)" class="absolute right-2 bottom-2 w-10 h-10 bg-black text-neon-pink rounded-full border-2 border-black flex items-center justify-center shadow-md active:scale-95 transition-transform z-10">
+                        <button @click.stop="openMap(item.location)" class="absolute right-2 bottom-2 w-10 h-10 bg-black text-neon-pink rounded-full border-2 border-black flex items-center justify-center shadow-md active:scale-95 transition-transform z-10 pointer-events-auto">
                             <i class="fa-solid fa-location-arrow text-sm"></i>
                         </button>
                     </div>
@@ -363,7 +376,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.1 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.2 ULTIMATE</div>
         </div>
     </main>
 
@@ -492,13 +505,15 @@
             const newItem = ref({ type: 'attraction', title: '', remarks: '', time: '10:00', location: '' });
             const newInfo = ref({ category: 'Flight', title: '', content: '' });
 
-            // SortableJS Init
+            // SortableJS Init with iOS Fixes
             const initSortable = () => {
                 if(itineraryListRef.value) {
                     new Sortable(itineraryListRef.value, {
                         animation: 150,
-                        delay: 250, 
+                        delay: 200, // Reduced delay for better response
                         delayOnTouchOnly: true,
+                        forceFallback: true, // Critical for iOS Safari
+                        fallbackTolerance: 3,
                         ghostClass: 'sortable-ghost',
                         dragClass: 'sortable-drag',
                         onEnd: (evt) => {
@@ -696,7 +711,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v4_1', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v4_2', JSON.stringify(data));
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -707,7 +722,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v4_1');
+                const saved = localStorage.getItem('bp_trip_ultimate_v4_2');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
