@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v4.3</title>
+    <title>Trip.OS v4.4</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -54,26 +54,34 @@
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            /* 關鍵：全局禁止文字選取，避免拖曳時變藍色 */
+            /* 全局禁止文字選取，除了輸入框 */
             -webkit-user-select: none;
             user-select: none;
-            -webkit-touch-callout: none;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
-        input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
         
-        button { touch-action: manipulation; }
+        /* 允許輸入框選取文字 */
+        input, textarea { -webkit-user-select: text; user-select: text; }
+        input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
+        
+        /* 針對按鈕優化雙擊，但不在可拖曳區域使用 */
+        button:not(.draggable-item button) { touch-action: manipulation; }
 
-        /* Draggable Items */
+        /* Draggable Items: 這裡不設 touch-action，讓 SortableJS 接管 */
         .draggable-item {
-            /* 這裡不要加 touch-action: none，否則會導致無法捲動頁面 */
-            /* 讓 SortableJS 來控制 */
             background: white; 
             position: relative;
+            /* 允許垂直滾動，防止卡死，但禁止左右滑動干擾 */
+            touch-action: pan-y; 
+            -webkit-touch-callout: none;
         }
 
-        /* 拖曳時的樣式 (Ghost: 原位置的影子, Drag: 浮起來的卡片) */
+        /* 長按選中時的視覺回饋 */
+        .sortable-chosen {
+            background-color: #f0f0f0;
+        }
+
+        /* 拖曳中的樣式 */
         .sortable-ghost { opacity: 0.3; background: #e5e7eb; border: 2px dashed #000; }
         .sortable-drag { 
             opacity: 1 !important; 
@@ -82,9 +90,6 @@
             box-shadow: 10px 10px 0px 0px rgba(0,0,0,0.2); 
             z-index: 9999;
         }
-        
-        /* 允許輸入框選取文字 */
-        input, textarea { -webkit-user-select: text; user-select: text; }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -143,8 +148,9 @@
             </div>
 
             <!-- ITINERARY LIST -->
-            <div ref="itineraryListRef" class="relative space-y-4 pb-2">
-                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group cursor-grab active:cursor-grabbing draggable-item">
+            <!-- 確保 ref 正確綁定 -->
+            <div ref="itineraryListRef" id="itinerary-list" class="relative space-y-4 pb-2">
+                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group draggable-item">
                     <!-- Timeline Dot -->
                     <div class="absolute -left-[9px] top-4 w-3 h-3 bg-black border border-white rounded-full z-10 pointer-events-none"></div>
                     <div class="absolute left-[-4px] top-6 bottom-[-20px] w-0.5 bg-black/20 z-0 pointer-events-none"></div>
@@ -179,7 +185,7 @@
                     </div>
                 </div>
                 <div v-if="filteredItinerary.length === 0" class="text-center text-gray-400 italic text-xs py-8">
-                    點擊下方 "ADD NEW" 新增行程<br>長按卡片 0.3s 可拖曳排序
+                    點擊下方 "ADD NEW" 新增行程<br>長按卡片 0.2s 可拖曳排序
                 </div>
             </div>
         </div>
@@ -381,7 +387,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.3 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.4 ULTIMATE</div>
         </div>
     </main>
 
@@ -510,22 +516,18 @@
             const newItem = ref({ type: 'attraction', title: '', remarks: '', time: '10:00', location: '' });
             const newInfo = ref({ category: 'Flight', title: '', content: '' });
 
-            // SortableJS Init with iOS "Nuclear" Fixes
+            // SortableJS Init
             const initSortable = () => {
                 if(itineraryListRef.value) {
                     new Sortable(itineraryListRef.value, {
                         animation: 150,
-                        
-                        // CRITICAL IOS SETTINGS
-                        delay: 300,             // 300ms long press
-                        delayOnTouchOnly: true, // Only for touch, mouse is instant
-                        touchStartThreshold: 10, // Allow 10px wobble before cancelling long press (The Magic Fix)
-                        
-                        forceFallback: true,    // Disable native HTML5 drag (it sucks on mobile)
-                        fallbackTolerance: 5,   // Drag starts after 5px movement
-                        
+                        delay: 200,             // 200ms delay for touch
+                        delayOnTouchOnly: true, // IMPORTANT: only for touch devices
                         ghostClass: 'sortable-ghost',
                         dragClass: 'sortable-drag',
+                        
+                        // We rely on CSS touch-action: pan-y to allow scrolling
+                        // and prevent horizontal swipe interference
                         
                         onEnd: (evt) => {
                             const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
@@ -722,7 +724,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v4_3', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v4_4', JSON.stringify(data));
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -733,7 +735,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v4_3');
+                const saved = localStorage.getItem('bp_trip_ultimate_v4_4');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
