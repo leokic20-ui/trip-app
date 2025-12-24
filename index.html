@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v4.2</title>
+    <title>Trip.OS v4.3</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -54,9 +54,10 @@
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            /* 禁止全域文字選取，這是解決拖曳誤選文字的關鍵 */
+            /* 關鍵：全局禁止文字選取，避免拖曳時變藍色 */
             -webkit-user-select: none;
             user-select: none;
+            -webkit-touch-callout: none;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
@@ -64,17 +65,23 @@
         
         button { touch-action: manipulation; }
 
-        /* 針對行程卡片的特殊處理：禁止選取文字，禁止 iOS 長按選單 */
+        /* Draggable Items */
         .draggable-item {
-            -webkit-touch-callout: none; /* iOS Safari 禁止長按選單 */
-            -webkit-user-select: none;   /* Chrome/Safari/Opera */
-            user-select: none;
-            touch-action: pan-y; /* 允許垂直滾動，但防止左右手勢干擾 */
+            /* 這裡不要加 touch-action: none，否則會導致無法捲動頁面 */
+            /* 讓 SortableJS 來控制 */
+            background: white; 
+            position: relative;
         }
 
-        /* 拖曳時的樣式 */
-        .sortable-ghost { opacity: 0.4; background: #ddd; border: 2px dashed #000; }
-        .sortable-drag { cursor: grabbing; opacity: 1; transform: scale(1.02); box-shadow: 5px 5px 0px 0px rgba(0,0,0,0.5); z-index: 50; }
+        /* 拖曳時的樣式 (Ghost: 原位置的影子, Drag: 浮起來的卡片) */
+        .sortable-ghost { opacity: 0.3; background: #e5e7eb; border: 2px dashed #000; }
+        .sortable-drag { 
+            opacity: 1 !important; 
+            background: #fff; 
+            transform: scale(1.05); 
+            box-shadow: 10px 10px 0px 0px rgba(0,0,0,0.2); 
+            z-index: 9999;
+        }
         
         /* 允許輸入框選取文字 */
         input, textarea { -webkit-user-select: text; user-select: text; }
@@ -172,7 +179,7 @@
                     </div>
                 </div>
                 <div v-if="filteredItinerary.length === 0" class="text-center text-gray-400 italic text-xs py-8">
-                    點擊下方 "ADD NEW" 新增行程<br>長按卡片可拖曳排序
+                    點擊下方 "ADD NEW" 新增行程<br>長按卡片 0.3s 可拖曳排序
                 </div>
             </div>
         </div>
@@ -241,7 +248,7 @@
             </div>
         </div>
 
-        <!-- 3. BAG & SOUVENIR (Merged by User) -->
+        <!-- 3. BAG & SOUVENIR -->
         <div v-if="currentTab === 'bag'" class="space-y-4 animate-bounce-in">
              <!-- User Filter Tabs -->
              <div class="flex border-2 border-black bg-white shadow-hard-sm">
@@ -265,7 +272,7 @@
                 <div v-if="filteredBagList.length === 0" class="text-center text-gray-300 text-xs italic mt-2">Empty Luggage List</div>
              </div>
              
-             <!-- Souvenirs Section (Filtered by User) -->
+             <!-- Souvenirs Section -->
              <div class="bg-neon-pink border-2 border-black shadow-hard p-3">
                 <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
                     {{ bagFilterUser }}'s SOUVENIRS
@@ -284,7 +291,6 @@
         <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in pb-10">
             <!-- INFO LIST -->
             <div v-for="item in infoList" :key="item.id" class="relative group">
-                <!-- Flight Design: Boarding Pass -->
                 <div v-if="item.category === 'Flight'" class="bg-white border-2 border-black shadow-hard relative overflow-hidden">
                     <div class="bg-black text-white text-[10px] px-2 py-1 font-bold uppercase flex justify-between items-center">
                         <span><i class="fa-solid fa-plane-departure mr-1"></i> BOARDING PASS</span>
@@ -306,7 +312,6 @@
                     </div>
                 </div>
                 
-                <!-- Standard Design -->
                 <div v-else class="bg-white border-2 border-black shadow-hard p-3 relative">
                     <div class="flex justify-between items-start mb-2 border-b-2 border-black pb-1">
                         <span class="bg-white border border-black text-black text-[10px] px-2 py-0.5 font-bold uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ item.category }}</span>
@@ -376,7 +381,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.2 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.3 ULTIMATE</div>
         </div>
     </main>
 
@@ -505,17 +510,23 @@
             const newItem = ref({ type: 'attraction', title: '', remarks: '', time: '10:00', location: '' });
             const newInfo = ref({ category: 'Flight', title: '', content: '' });
 
-            // SortableJS Init with iOS Fixes
+            // SortableJS Init with iOS "Nuclear" Fixes
             const initSortable = () => {
                 if(itineraryListRef.value) {
                     new Sortable(itineraryListRef.value, {
                         animation: 150,
-                        delay: 200, // Reduced delay for better response
-                        delayOnTouchOnly: true,
-                        forceFallback: true, // Critical for iOS Safari
-                        fallbackTolerance: 3,
+                        
+                        // CRITICAL IOS SETTINGS
+                        delay: 300,             // 300ms long press
+                        delayOnTouchOnly: true, // Only for touch, mouse is instant
+                        touchStartThreshold: 10, // Allow 10px wobble before cancelling long press (The Magic Fix)
+                        
+                        forceFallback: true,    // Disable native HTML5 drag (it sucks on mobile)
+                        fallbackTolerance: 5,   // Drag starts after 5px movement
+                        
                         ghostClass: 'sortable-ghost',
                         dragClass: 'sortable-drag',
+                        
                         onEnd: (evt) => {
                             const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
                             const dayItems = filteredItinerary.value;
@@ -711,7 +722,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v4_2', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v4_3', JSON.stringify(data));
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -722,7 +733,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v4_2');
+                const saved = localStorage.getItem('bp_trip_ultimate_v4_3');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
