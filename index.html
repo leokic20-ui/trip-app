@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v4.4</title>
+    <title>Trip.OS v4.5</title>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -54,34 +54,27 @@
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
-            /* 全局禁止文字選取，除了輸入框 */
             -webkit-user-select: none;
             user-select: none;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* 允許輸入框選取文字 */
-        input, textarea { -webkit-user-select: text; user-select: text; }
-        input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
-        
-        /* 針對按鈕優化雙擊，但不在可拖曳區域使用 */
-        button:not(.draggable-item button) { touch-action: manipulation; }
-
-        /* Draggable Items: 這裡不設 touch-action，讓 SortableJS 接管 */
-        .draggable-item {
-            background: white; 
-            position: relative;
-            /* 允許垂直滾動，防止卡死，但禁止左右滑動干擾 */
-            touch-action: pan-y; 
             -webkit-touch-callout: none;
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
+        input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
+        
+        button { touch-action: manipulation; }
 
-        /* 長按選中時的視覺回饋 */
-        .sortable-chosen {
-            background-color: #f0f0f0;
+        .draggable-item {
+            touch-action: manipulation; 
+            background: white; 
+            position: relative;
         }
 
-        /* 拖曳中的樣式 */
+        .drag-handle {
+            touch-action: none; 
+            cursor: grab;
+        }
+
         .sortable-ghost { opacity: 0.3; background: #e5e7eb; border: 2px dashed #000; }
         .sortable-drag { 
             opacity: 1 !important; 
@@ -90,6 +83,8 @@
             box-shadow: 10px 10px 0px 0px rgba(0,0,0,0.2); 
             z-index: 9999;
         }
+        
+        input, textarea { -webkit-user-select: text; user-select: text; }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -148,10 +143,8 @@
             </div>
 
             <!-- ITINERARY LIST -->
-            <!-- 確保 ref 正確綁定 -->
-            <div ref="itineraryListRef" id="itinerary-list" class="relative space-y-4 pb-2">
-                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group draggable-item">
-                    <!-- Timeline Dot -->
+            <div ref="itineraryListRef" class="relative space-y-4 pb-2">
+                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group cursor-grab active:cursor-grabbing draggable-item">
                     <div class="absolute -left-[9px] top-4 w-3 h-3 bg-black border border-white rounded-full z-10 pointer-events-none"></div>
                     <div class="absolute left-[-4px] top-6 bottom-[-20px] w-0.5 bg-black/20 z-0 pointer-events-none"></div>
 
@@ -160,17 +153,22 @@
                         item.type === 'food' ? 'bg-orange-50 border-orange-900' : 
                         item.type === 'transport' ? 'bg-blue-50 border-dashed' : '']">
                         
-                        <!-- Header -->
-                        <div class="flex justify-between items-start mb-1 pointer-events-none">
-                            <span class="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold font-mono tracking-tighter">{{ item.time }}</span>
-                            <div class="space-x-3 pr-8 pointer-events-auto">
+                        <!-- Header with Handle -->
+                        <div class="flex justify-between items-start mb-1">
+                            <div class="flex items-center gap-2">
+                                <div class="drag-handle text-gray-300 hover:text-black cursor-grab px-1 -ml-1" title="Drag to sort">
+                                    <i class="fa-solid fa-grip-vertical text-xs"></i>
+                                </div>
+                                <span class="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold font-mono tracking-tighter">{{ item.time }}</span>
+                            </div>
+                            
+                            <div class="space-x-3 pr-8">
                                 <button @click="openEditModal(item)" class="text-gray-400 hover:text-black text-xs p-1"><i class="fa-solid fa-pen"></i></button>
                                 <button @click="deleteItem('itinerary', item.id)" class="text-gray-400 hover:text-red-500 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
 
-                        <!-- Content -->
-                        <div class="pr-10 pointer-events-none">
+                        <div class="pr-10">
                             <h3 class="font-black text-lg leading-tight mb-1">{{ item.title }}</h3>
                             <p v-if="item.remarks" class="text-xs text-gray-500 font-medium mb-1 line-clamp-2">{{ item.remarks }}</p>
                             <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-600 mt-2 bg-black/5 inline-block px-1.5 py-0.5 rounded">
@@ -178,14 +176,13 @@
                             </div>
                         </div>
 
-                        <!-- NAV BUTTON -->
-                        <button @click.stop="openMap(item.location)" class="absolute right-2 bottom-2 w-10 h-10 bg-black text-neon-pink rounded-full border-2 border-black flex items-center justify-center shadow-md active:scale-95 transition-transform z-10 pointer-events-auto">
+                        <button @click.stop="openMap(item.location)" class="absolute right-2 bottom-2 w-10 h-10 bg-black text-neon-pink rounded-full border-2 border-black flex items-center justify-center shadow-md active:scale-95 transition-transform z-10">
                             <i class="fa-solid fa-location-arrow text-sm"></i>
                         </button>
                     </div>
                 </div>
                 <div v-if="filteredItinerary.length === 0" class="text-center text-gray-400 italic text-xs py-8">
-                    點擊下方 "ADD NEW" 新增行程<br>長按卡片 0.2s 可拖曳排序
+                    點擊下方 "ADD NEW" 新增行程<br>按住 <i class="fa-solid fa-grip-vertical"></i> 拖曳排序
                 </div>
             </div>
         </div>
@@ -213,7 +210,6 @@
                         {{ btn }}
                     </button>
                 </div>
-                <!-- 付款人下拉選單 -->
                 <div class="flex gap-2 mt-2 w-full">
                      <select v-model="expensePayer" class="border-2 border-black p-1.5 font-bold text-xs bg-neon-pink text-black rounded-none w-1/3">
                         <option v-for="u in users" :value="u">{{ u }}</option>
@@ -227,7 +223,6 @@
                 <button @click="addExpense" class="w-full bg-neon-pink border-2 border-black py-2 font-black shadow-hard active:translate-y-1 active:shadow-none text-sm tracking-widest hover:bg-pink-300 transition-colors">記帳 SAVE</button>
             </div>
 
-            <!-- 支出統計 -->
             <div class="bg-black text-white p-3 border-2 border-black shadow-hard text-xs font-bold space-y-1">
                 <div class="flex justify-between border-b border-gray-600 pb-1 mb-1">
                     <span>TOTAL SPENT</span>
@@ -256,7 +251,6 @@
 
         <!-- 3. BAG & SOUVENIR -->
         <div v-if="currentTab === 'bag'" class="space-y-4 animate-bounce-in">
-             <!-- User Filter Tabs -->
              <div class="flex border-2 border-black bg-white shadow-hard-sm">
                  <button v-for="u in users" :key="u" @click="bagFilterUser = u" 
                          :class="['flex-1 py-2 text-xs font-bold border-r border-black last:border-r-0', bagFilterUser === u ? 'bg-neon-blue text-black' : 'text-gray-400 hover:bg-gray-50']">
@@ -264,7 +258,6 @@
                  </button>
              </div>
 
-             <!-- Luggage Section -->
              <div class="bg-white border-2 border-black shadow-hard p-3">
                 <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
                     {{ bagFilterUser }}'s LUGGAGE
@@ -278,7 +271,6 @@
                 <div v-if="filteredBagList.length === 0" class="text-center text-gray-300 text-xs italic mt-2">Empty Luggage List</div>
              </div>
              
-             <!-- Souvenirs Section -->
              <div class="bg-neon-pink border-2 border-black shadow-hard p-3">
                 <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
                     {{ bagFilterUser }}'s SOUVENIRS
@@ -293,41 +285,58 @@
              </div>
         </div>
 
-        <!-- 4. INFO -->
+        <!-- 4. INFO (Upgraded with Sortable) -->
         <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in pb-10">
-            <!-- INFO LIST -->
-            <div v-for="item in infoList" :key="item.id" class="relative group">
-                <div v-if="item.category === 'Flight'" class="bg-white border-2 border-black shadow-hard relative overflow-hidden">
-                    <div class="bg-black text-white text-[10px] px-2 py-1 font-bold uppercase flex justify-between items-center">
-                        <span><i class="fa-solid fa-plane-departure mr-1"></i> BOARDING PASS</span>
-                        <div class="space-x-2">
-                             <button @click="openInfoEditModal(item)" class="text-gray-300 hover:text-white"><i class="fa-solid fa-pen"></i></button>
-                             <button @click="deleteItem('infoList', item.id)" class="text-red-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+            <!-- INFO LIST CONTAINER -->
+            <div ref="infoListRef" class="space-y-4">
+                <div v-for="item in infoList" :key="item.id" class="relative group draggable-item cursor-grab active:cursor-grabbing">
+                    
+                    <!-- Flight Design -->
+                    <div v-if="item.category === 'Flight'" class="bg-white border-2 border-black shadow-hard relative overflow-hidden">
+                        <div class="bg-black text-white text-[10px] px-2 py-1 font-bold uppercase flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <!-- INFO DRAG HANDLE -->
+                                <div class="drag-handle text-gray-500 hover:text-white cursor-grab px-1 -ml-1" title="Drag to sort">
+                                    <i class="fa-solid fa-grip-vertical text-xs"></i>
+                                </div>
+                                <span><i class="fa-solid fa-plane-departure mr-1"></i> BOARDING PASS</span>
+                            </div>
+                            <div class="space-x-2">
+                                 <button @click="openInfoEditModal(item)" class="text-gray-300 hover:text-white"><i class="fa-solid fa-pen"></i></button>
+                                 <button @click="deleteItem('infoList', item.id)" class="text-red-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <div class="p-3 flex justify-between items-center relative">
+                            <div class="border-r-2 border-dashed border-gray-300 pr-4 flex-1">
+                                <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">FLIGHT NO</div>
+                                <div class="text-2xl font-black font-mono leading-none mb-2">{{ item.title }}</div>
+                                <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">DETAILS</div>
+                                <div class="text-xs font-bold whitespace-pre-line leading-tight">{{ item.content }}</div>
+                            </div>
+                            <div class="w-8 flex flex-col items-center justify-center opacity-30 pl-2">
+                                <i class="fa-solid fa-barcode text-4xl rotate-90"></i>
+                            </div>
                         </div>
                     </div>
-                    <div class="p-3 flex justify-between items-center relative">
-                        <div class="border-r-2 border-dashed border-gray-300 pr-4 flex-1">
-                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">FLIGHT NO</div>
-                            <div class="text-2xl font-black font-mono leading-none mb-2">{{ item.title }}</div>
-                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">DETAILS</div>
-                            <div class="text-xs font-bold whitespace-pre-line leading-tight">{{ item.content }}</div>
+                    
+                    <!-- Standard Design -->
+                    <div v-else class="bg-white border-2 border-black shadow-hard p-3 relative">
+                        <div class="flex justify-between items-start mb-2 border-b-2 border-black pb-1">
+                            <div class="flex items-center gap-2">
+                                <!-- INFO DRAG HANDLE -->
+                                <div class="drag-handle text-gray-300 hover:text-black cursor-grab px-1 -ml-1" title="Drag to sort">
+                                    <i class="fa-solid fa-grip-vertical text-xs"></i>
+                                </div>
+                                <span class="bg-white border border-black text-black text-[10px] px-2 py-0.5 font-bold uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ item.category }}</span>
+                            </div>
+                            <div class="space-x-2">
+                                 <button @click="openInfoEditModal(item)" class="text-gray-500 hover:text-blue-600 text-[10px]"><i class="fa-solid fa-pen"></i></button>
+                                 <button @click="deleteItem('infoList', item.id)" class="text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
+                            </div>
                         </div>
-                        <div class="w-8 flex flex-col items-center justify-center opacity-30 pl-2">
-                            <i class="fa-solid fa-barcode text-4xl rotate-90"></i>
-                        </div>
+                        <div class="font-black text-lg mb-1">{{ item.title }}</div>
+                        <div class="text-xs text-gray-600 whitespace-pre-line border-l-2 border-gray-200 pl-2">{{ item.content }}</div>
                     </div>
-                </div>
-                
-                <div v-else class="bg-white border-2 border-black shadow-hard p-3 relative">
-                    <div class="flex justify-between items-start mb-2 border-b-2 border-black pb-1">
-                        <span class="bg-white border border-black text-black text-[10px] px-2 py-0.5 font-bold uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ item.category }}</span>
-                        <div class="space-x-2">
-                             <button @click="openInfoEditModal(item)" class="text-gray-500 hover:text-blue-600 text-[10px]"><i class="fa-solid fa-pen"></i></button>
-                             <button @click="deleteItem('infoList', item.id)" class="text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </div>
-                    <div class="font-black text-lg mb-1">{{ item.title }}</div>
-                    <div class="text-xs text-gray-600 whitespace-pre-line border-l-2 border-gray-200 pl-2">{{ item.content }}</div>
                 </div>
             </div>
 
@@ -387,7 +396,7 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.4 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.5 ULTIMATE</div>
         </div>
     </main>
 
@@ -484,6 +493,7 @@
             const titleInput = ref(null);
             const editingId = ref(null);
             const itineraryListRef = ref(null);
+            const infoListRef = ref(null);
 
             // Data
             const settings = ref({ appTitle: 'TRIP.OS', startDate: new Date().toISOString().split('T')[0], tripDays: 5 });
@@ -516,19 +526,24 @@
             const newItem = ref({ type: 'attraction', title: '', remarks: '', time: '10:00', location: '' });
             const newInfo = ref({ category: 'Flight', title: '', content: '' });
 
-            // SortableJS Init
+            // Universal Sortable Init
             const initSortable = () => {
+                const commonOptions = {
+                    animation: 150,
+                    delay: 200,
+                    delayOnTouchOnly: true,
+                    touchStartThreshold: 3,
+                    forceFallback: true,
+                    fallbackTolerance: 3,
+                    handle: '.draggable-item', 
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag'
+                };
+
+                // Itinerary Sortable
                 if(itineraryListRef.value) {
                     new Sortable(itineraryListRef.value, {
-                        animation: 150,
-                        delay: 200,             // 200ms delay for touch
-                        delayOnTouchOnly: true, // IMPORTANT: only for touch devices
-                        ghostClass: 'sortable-ghost',
-                        dragClass: 'sortable-drag',
-                        
-                        // We rely on CSS touch-action: pan-y to allow scrolling
-                        // and prevent horizontal swipe interference
-                        
+                        ...commonOptions,
                         onEnd: (evt) => {
                             const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
                             const dayItems = filteredItinerary.value;
@@ -539,6 +554,19 @@
                             
                             const otherItems = itinerary.value.filter(i => i.date !== dateKey);
                             itinerary.value = [...otherItems, ...dayItems];
+                            saveData();
+                        }
+                    });
+                }
+
+                // Info Sortable
+                if(infoListRef.value) {
+                    new Sortable(infoListRef.value, {
+                        ...commonOptions,
+                        onEnd: (evt) => {
+                            const movedItem = infoList.value[evt.oldIndex];
+                            infoList.value.splice(evt.oldIndex, 1);
+                            infoList.value.splice(evt.newIndex, 0, movedItem);
                             saveData();
                         }
                     });
@@ -635,9 +663,9 @@
                 } catch(e) { console.error(e); }
             };
 
-            watch([selectedDayIndex], () => { 
+            watch([selectedDayIndex, currentTab], () => { 
                 nextTick(initSortable); 
-                setTimeout(fetchWeather, 500); 
+                if(currentTab.value === 'itinerary') setTimeout(fetchWeather, 500); 
             });
             
             const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
@@ -697,6 +725,7 @@
                     infoList.value.push({ id: Date.now(), ...newInfo.value });
                 }
                 showInfoModal.value = false; saveData();
+                nextTick(initSortable);
             };
 
             const deleteItem = (list, id) => {
@@ -724,7 +753,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v4_4', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v4_5', JSON.stringify(data));
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -735,7 +764,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v4_4');
+                const saved = localStorage.getItem('bp_trip_ultimate_v4_5');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
@@ -798,7 +827,7 @@
                 firebaseConfigStr, initFirebase, weatherApiKey, currentWeather, forecastList, currentAutoLocation, 
                 usersInput, updateUsers, users, bagFilterUser, filteredBagList, filteredSouvenirList,
                 openMap, getIcon, getWeatherIcon, formatTime, saveData, exportJSON, fetchWeather, editTitle,
-                itineraryListRef
+                itineraryListRef, infoListRef
             };
         }
     }).mount('#app');
