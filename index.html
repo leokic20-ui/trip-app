@@ -8,16 +8,13 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SortableJS & VueDraggable -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vuedraggable/4.1.0/vuedraggable.umd.min.js"></script>
-    
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     
-    <!-- iPhone Icon -->
     <link rel="apple-touch-icon" href="IMG_9655.jpeg">
 
     <!-- Firebase SDK -->
@@ -31,12 +28,20 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { 'neon-pink': '#F9C5CB', 'marble': '#f3f4f6' },
+                    colors: { 
+                        'neon-pink': '#F9C5CB', 
+                        'neon-orange': '#FFD8A8',
+                        'neon-blue': '#A5D8FF',
+                        'marble': '#f3f4f6' 
+                    },
                     boxShadow: {
                         'hard': '3px 3px 0px 0px rgba(0,0,0,1)',
                         'hard-sm': '1px 1px 0px 0px rgba(0,0,0,1)',
                     },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
                     animation: { 'bounce-in': 'bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
                     keyframes: { bounceIn: { '0%': { transform: 'scale(0.8)', opacity:0 }, '100%': { transform: 'scale(1)', opacity:1 } } }
                 }
@@ -55,17 +60,11 @@
         input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
         input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
         
-        .ghost-card { opacity: 0.5; background: #F9C5CB; border: 2px dashed black; }
-        .drag-handle { touch-action: none; } 
-        
-        /* Boarding Pass Notches */
-        .boarding-pass-notch { position: absolute; width: 20px; height: 20px; background: #f3f4f6; border-radius: 50%; border: 2px solid black; }
-        .notch-left { top: 50%; left: -12px; transform: translateY(-50%); border-right-color: transparent; border-top-color: transparent; border-bottom-color: transparent; }
-        .notch-right { top: 50%; right: -12px; transform: translateY(-50%); border-left-color: transparent; border-top-color: transparent; border-bottom-color: transparent; }
+        /* 禁止按鈕雙擊放大 (Critical Fix) */
+        button { touch-action: manipulation; }
 
-        /* Horizontal Scroll Snap */
-        .weather-scroll { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-        .weather-card { scroll-snap-align: start; }
+        .sortable-ghost { opacity: 0.4; background: #ddd; border: 2px dashed #000; }
+        .sortable-drag { cursor: grabbing; opacity: 1; transform: scale(1.02); box-shadow: 5px 5px 0px 0px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body class="text-black overflow-hidden fixed inset-0">
@@ -89,7 +88,7 @@
         
         <!-- 1. ITINERARY -->
         <div v-if="currentTab === 'itinerary'" class="space-y-3 animate-bounce-in">
-            <!-- 日期選擇 -->
+            <!-- Day Selector -->
             <div class="flex space-x-2 overflow-x-auto pb-1 no-scrollbar">
                 <div v-for="(day, index) in tripDays" :key="index" @click="selectedDayIndex = index"
                      :class="['flex-shrink-0 px-3 py-1.5 border-2 border-black font-bold text-xs cursor-pointer transition-all shadow-hard-sm', selectedDayIndex === index ? 'bg-neon-pink text-black translate-x-[1px] translate-y-[1px] shadow-none' : 'bg-white']">
@@ -97,73 +96,75 @@
                 </div>
             </div>
 
-            <!-- 天氣方塊 (每小時橫向捲動) -->
+            <!-- SMART WEATHER WIDGET -->
             <div class="bg-black text-white p-3 border-2 border-black shadow-hard relative overflow-hidden">
-                <div class="flex justify-between items-center mb-2">
-                     <span class="text-[10px] text-neon-pink uppercase font-bold flex items-center gap-1 truncate max-w-[200px]">
-                        <i class="fa-solid fa-location-dot"></i> {{ smartLocation || 'Select Date...' }}
-                    </span>
-                    <span class="text-[9px] text-gray-400">TODAY'S HOURLY</span>
+                <div class="flex justify-between items-start mb-2">
+                    <div class="z-10 relative">
+                        <div class="text-[9px] text-neon-pink uppercase font-bold tracking-widest mb-0.5">WEATHER IN</div>
+                        <h2 class="text-2xl font-black uppercase leading-none truncate max-w-[200px]">{{ currentAutoLocation || 'DETECTING...' }}</h2>
+                        <div class="font-bold text-sm flex items-center gap-2 mt-1">
+                            {{ currentWeather ? `${Math.round(currentWeather.main.temp)}°C` : '--' }} 
+                            <span class="text-[10px] font-normal text-gray-300 bg-gray-800 px-1.5 rounded" v-if="currentWeather">{{ currentWeather.weather[0].description }}</span>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-cloud-sun text-4xl text-neon-pink opacity-80 z-0 absolute right-2 top-2"></i>
+                    <button @click="fetchWeather" class="absolute right-1 bottom-1 text-gray-500 text-[10px] z-20 p-2"><i class="fa-solid fa-rotate"></i></button>
                 </div>
                 
-                <!-- 橫向捲動容器 -->
-                <div class="flex gap-3 overflow-x-auto pb-2 no-scrollbar weather-scroll">
-                    <!-- 若無資料顯示 Loading -->
-                    <div v-if="!currentWeather" class="text-xs text-gray-500 py-4 italic">Loading weather...</div>
-                    
-                    <!-- 每小時預報卡片 -->
-                    <div v-for="h in hourlyForecast" :key="h.dt" class="weather-card flex-shrink-0 text-center w-14 bg-gray-900 border border-gray-700 p-1.5 rounded-sm">
-                        <div class="text-[10px] text-gray-400 font-bold mb-1">{{ h.time }}</div>
-                        <img :src="`https://openweathermap.org/img/wn/${h.icon}.png`" class="w-8 h-8 mx-auto filter brightness-110">
-                        <div class="text-xs font-black text-white mt-1">{{ Math.round(h.temp) }}°</div>
+                <!-- Hourly Forecast Scroll -->
+                <div v-if="forecastList.length" class="border-t border-gray-700 mt-2 pt-2 flex overflow-x-auto gap-3 no-scrollbar pb-1">
+                    <div v-for="f in forecastList" :key="f.dt" class="flex-shrink-0 text-center min-w-[3rem]">
+                        <div class="text-[9px] text-gray-400 font-bold">{{ formatTime(f.dt_txt) }}</div>
+                        <i :class="getWeatherIcon(f.weather[0].icon)" class="text-neon-pink text-xs my-1"></i>
+                        <div class="text-[10px] font-bold">{{ Math.round(f.main.temp) }}°</div>
                     </div>
                 </div>
+                <div v-else class="text-[10px] text-gray-500 italic mt-2">No forecast data (Add API Key & Location)</div>
             </div>
 
-            <!-- 可拖曳行程列表 -->
-            <div class="relative pl-3 border-l-2 border-black ml-1 space-y-4">
-                <draggable 
-                    v-model="filteredItinerary" 
-                    item-key="id" 
-                    handle=".drag-handle" 
-                    ghost-class="ghost-card" 
-                    @end="onDragEnd"
-                    :delay="200" 
-                    :delay-on-touch-only="true"
-                    class="space-y-4"
-                >
-                    <template #item="{element}">
-                        <div class="relative group">
-                            <div class="absolute -left-[19px] top-3 w-3 h-3 bg-neon-pink border-2 border-black rounded-full z-10"></div>
-                            
-                            <div :class="['border-2 border-black p-2 shadow-hard relative transition-transform active:scale-[0.98]', 
-                                          element.type === 'food' ? 'bg-white border-dashed' : 
-                                          element.type === 'transport' ? 'bg-gray-100' : 'bg-black text-white']">
-                                
-                                <div class="flex justify-between items-start mb-1">
-                                    <span :class="['text-[10px] px-1.5 py-0.5 font-bold', element.type === 'attraction' ? 'bg-white text-black' : 'bg-black text-white']">{{ element.time }}</span>
-                                    <div class="space-x-2 flex items-center">
-                                        <button @click="openEditModal(element)" class="text-gray-400 hover:text-neon-pink text-[10px]"><i class="fa-solid fa-pen"></i></button>
-                                        <button @click="deleteItem('itinerary', element.id)" class="text-gray-400 hover:text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
-                                        <div class="drag-handle cursor-move text-gray-500 hover:text-white px-1"><i class="fa-solid fa-grip-lines"></i></div>
-                                    </div>
-                                </div>
-                                
-                                <h3 class="font-black text-base leading-tight">{{ element.title }}</h3>
-                                <p v-if="element.remarks" class="text-[10px] mt-1 opacity-70 font-normal border-l-2 pl-1 border-neon-pink">{{ element.remarks }}</p>
-                                
-                                <button @click="openMap(element.location)" class="absolute -right-2 -bottom-2 w-8 h-8 bg-neon-pink text-black border-2 border-black flex items-center justify-center shadow-hard-sm hover:scale-110 transition-transform z-20">
-                                    <i class="fa-solid fa-location-arrow text-sm"></i>
-                                </button>
+            <!-- ITINERARY LIST -->
+            <div ref="itineraryListRef" class="relative space-y-4 pb-2">
+                <div v-for="item in filteredItinerary" :key="item.id" :data-id="item.id" class="relative group cursor-grab active:cursor-grabbing">
+                    <!-- Timeline Dot -->
+                    <div class="absolute -left-[9px] top-4 w-3 h-3 bg-black border border-white rounded-full z-10"></div>
+                    <div class="absolute left-[-4px] top-6 bottom-[-20px] w-0.5 bg-black/20 z-0"></div>
+
+                    <!-- Card Body -->
+                    <div :class="['bg-white border-2 border-black p-3 shadow-hard relative transition-all ml-3', 
+                        item.type === 'food' ? 'bg-orange-50 border-orange-900' : 
+                        item.type === 'transport' ? 'bg-blue-50 border-dashed' : '']">
+                        
+                        <!-- Header -->
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="bg-black text-white text-[10px] px-1.5 py-0.5 font-bold font-mono tracking-tighter">{{ item.time }}</span>
+                            <div class="space-x-3 pr-8">
+                                <button @click="openEditModal(item)" class="text-gray-400 hover:text-black text-xs"><i class="fa-solid fa-pen"></i></button>
+                                <button @click="deleteItem('itinerary', item.id)" class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
                             </div>
                         </div>
-                    </template>
-                </draggable>
-                <div v-if="filteredItinerary.length === 0" class="text-gray-400 italic text-xs pl-2">尚未新增行程...</div>
+
+                        <!-- Content -->
+                        <div class="pr-10">
+                            <h3 class="font-black text-lg leading-tight mb-1">{{ item.title }}</h3>
+                            <p v-if="item.remarks" class="text-xs text-gray-500 font-medium mb-1 line-clamp-2">{{ item.remarks }}</p>
+                            <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-600 mt-2 bg-black/5 inline-block px-1.5 py-0.5 rounded">
+                                <i :class="getIcon(item.type)"></i> {{ item.location }}
+                            </div>
+                        </div>
+
+                        <!-- NAV BUTTON -->
+                        <button @click.stop="openMap(item.location)" class="absolute right-2 bottom-2 w-10 h-10 bg-black text-neon-pink rounded-full border-2 border-black flex items-center justify-center shadow-md active:scale-95 transition-transform z-10">
+                            <i class="fa-solid fa-location-arrow text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <div v-if="filteredItinerary.length === 0" class="text-center text-gray-400 italic text-xs py-8">
+                    點擊下方 "ADD NEW" 新增行程<br>長按卡片可拖曳排序
+                </div>
             </div>
         </div>
 
-        <!-- 2. EXPENSE (Updated Logic) -->
+        <!-- 2. EXPENSE -->
         <div v-if="currentTab === 'expense'" class="space-y-4 animate-bounce-in">
             <div class="bg-white border-2 border-black shadow-hard p-3 space-y-2 w-full box-border">
                 <div class="flex justify-between items-end border-b-2 border-black pb-2 mb-1">
@@ -186,10 +187,9 @@
                         {{ btn }}
                     </button>
                 </div>
-                <!-- Payer Selection (Must select a User) -->
+                <!-- 付款人下拉選單 -->
                 <div class="flex gap-2 mt-2 w-full">
                      <select v-model="expensePayer" class="border-2 border-black p-1.5 font-bold text-xs bg-neon-pink text-black rounded-none w-1/3">
-                        <option v-if="users.length === 0" value="" disabled>Add Users in Settings</option>
                         <option v-for="u in users" :value="u">{{ u }}</option>
                     </select>
                     <select v-model="expenseType" class="border-2 border-black p-1.5 font-bold text-xs bg-gray-100 rounded-none w-1/3">
@@ -200,7 +200,8 @@
                 </div>
                 <button @click="addExpense" class="w-full bg-neon-pink border-2 border-black py-2 font-black shadow-hard active:translate-y-1 active:shadow-none text-sm tracking-widest hover:bg-pink-300 transition-colors">記帳 SAVE</button>
             </div>
-            
+
+            <!-- 支出統計 -->
             <div class="bg-black text-white p-3 border-2 border-black shadow-hard text-xs font-bold space-y-1">
                 <div class="flex justify-between border-b border-gray-600 pb-1 mb-1">
                     <span>TOTAL SPENT</span>
@@ -211,9 +212,9 @@
                     <span>${{ amount }}</span>
                 </div>
             </div>
-            
+
             <div class="space-y-2 mt-4">
-                <h3 class="font-black border-b-2 border-black inline-block text-xs">RECENT EXPENSES</h3>
+                <h3 class="font-black border-b-2 border-black inline-block text-xs">RECENT</h3>
                 <div v-for="exp in expenses" :key="exp.id" class="flex justify-between items-center bg-white border-2 border-black p-2 shadow-hard-sm">
                     <div class="truncate mr-2">
                         <div class="font-bold text-sm truncate">{{ exp.note }}</div>
@@ -227,93 +228,116 @@
             </div>
         </div>
 
-        <!-- 3. BAG (Updated Logic) -->
+        <!-- 3. BAG & SOUVENIR (Merged by User) -->
         <div v-if="currentTab === 'bag'" class="space-y-4 animate-bounce-in">
-             <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar" v-if="users.length > 0">
-                 <button v-for="u in users" :key="u" @click="bagFilter = u" :class="['px-3 py-1 text-[10px] font-bold border-2 border-black', bagFilter === u ? 'bg-neon-pink text-black' : 'bg-white']">{{ u }}</button>
+             <!-- User Filter Tabs -->
+             <div class="flex border-2 border-black bg-white shadow-hard-sm">
+                 <button v-for="u in users" :key="u" @click="bagFilterUser = u" 
+                         :class="['flex-1 py-2 text-xs font-bold border-r border-black last:border-r-0', bagFilterUser === u ? 'bg-neon-blue text-black' : 'text-gray-400 hover:bg-gray-50']">
+                     {{ u }}
+                 </button>
              </div>
-             <div v-else class="text-center text-[10px] bg-yellow-100 p-2 border-2 border-black border-dashed">Please add Users in Settings tab first!</div>
-             
+
+             <!-- Luggage Section -->
              <div class="bg-white border-2 border-black shadow-hard p-3">
-                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">LUGGAGE ({{ bagFilter }}) <button @click="addChecklistItem('bag')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-neon-pink hover:text-black" :disabled="!users.length">+ Add</button></h3>
-                <div v-if="filteredBagList.length === 0" class="text-[10px] text-gray-400 italic">No items for {{ bagFilter }}</div>
+                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
+                    {{ bagFilterUser }}'s LUGGAGE
+                    <button @click="addChecklistItem('bag')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-neon-pink hover:text-black">+ Add</button>
+                </h3>
                 <div v-for="item in filteredBagList" :key="item.id" class="flex items-center gap-2 mb-1">
-                    <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-neon-pink cursor-pointer shrink-0">
+                    <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-neon-pink cursor-pointer">
                     <input v-model="item.text" @change="saveData" class="border-b border-gray-300 w-full bg-transparent focus:outline-none font-bold text-sm p-1" placeholder="Item...">
-                    <button @click="deleteItem('bagList', item.id)" class="text-gray-400 hover:text-red-500 text-xs shrink-0"><i class="fa-solid fa-xmark"></i></button>
+                    <button @click="deleteItem('bagList', item.id)" class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                <div v-if="filteredBagList.length === 0" class="text-center text-gray-300 text-xs italic mt-2">Empty Luggage List</div>
              </div>
              
+             <!-- Souvenirs Section (Filtered by User) -->
              <div class="bg-neon-pink border-2 border-black shadow-hard p-3">
-                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">SOUVENIRS <button @click="addChecklistItem('souvenir')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-white hover:text-black">+ Add</button></h3>
-                <div v-for="item in souvenirList" :key="item.id" class="flex items-center gap-2 mb-1">
-                    <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-white cursor-pointer shrink-0">
+                <h3 class="font-black mb-2 flex justify-between items-center border-b-2 border-black pb-1 text-sm">
+                    {{ bagFilterUser }}'s SOUVENIRS
+                    <button @click="addChecklistItem('souvenir')" class="text-[10px] bg-black text-white px-2 py-0.5 hover:bg-white hover:text-black">+ Add</button>
+                </h3>
+                <div v-for="item in filteredSouvenirList" :key="item.id" class="flex items-center gap-2 mb-1">
+                    <input type="checkbox" v-model="item.checked" @change="saveData" class="w-4 h-4 border-2 border-black accent-white cursor-pointer">
                     <input v-model="item.text" @change="saveData" class="border-b border-black/20 w-full bg-transparent focus:outline-none font-bold placeholder-black/50 text-sm p-1" placeholder="Gift for...">
-                    <button @click="deleteItem('souvenirList', item.id)" class="text-black/50 hover:text-red-600 text-xs shrink-0"><i class="fa-solid fa-xmark"></i></button>
+                    <button @click="deleteItem('souvenirList', item.id)" class="text-black/50 hover:text-red-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                <div v-if="filteredSouvenirList.length === 0" class="text-center text-black/30 text-xs italic mt-2">Empty Souvenir List</div>
              </div>
         </div>
 
-        <!-- 4. INFO (保持 v4.0) -->
-        <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in">
-            <div v-for="item in infoList" :key="item.id" class="relative">
-                <div v-if="item.category === 'Flight'" class="bg-white border-2 border-black shadow-hard p-4 relative overflow-hidden">
-                    <div class="boarding-pass-notch notch-left"></div>
-                    <div class="boarding-pass-notch notch-right"></div>
-                    <div class="border-b-2 border-dashed border-gray-300 pb-2 mb-2 flex justify-between items-end">
-                         <div class="text-xs text-gray-500 font-bold uppercase tracking-widest">BOARDING PASS</div>
-                         <div class="text-xl font-black">{{ item.title }}</div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <div class="text-[9px] text-gray-400 font-bold">FLIGHT</div>
-                            <div class="font-bold text-sm">{{ item.title }}</div>
-                        </div>
-                        <div class="text-right">
-                             <div class="text-[9px] text-gray-400 font-bold">INFO</div>
-                             <div class="font-bold text-sm whitespace-pre-line">{{ item.content }}</div>
-                        </div>
-                    </div>
-                    <div class="mt-3 pt-2 border-t-2 border-black flex justify-between items-center">
-                        <i class="fa-solid fa-plane text-2xl text-neon-pink"></i>
+        <!-- 4. INFO -->
+        <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in pb-10">
+            <!-- INFO LIST -->
+            <div v-for="item in infoList" :key="item.id" class="relative group">
+                <!-- Flight Design: Boarding Pass -->
+                <div v-if="item.category === 'Flight'" class="bg-white border-2 border-black shadow-hard relative overflow-hidden">
+                    <div class="bg-black text-white text-[10px] px-2 py-1 font-bold uppercase flex justify-between items-center">
+                        <span><i class="fa-solid fa-plane-departure mr-1"></i> BOARDING PASS</span>
                         <div class="space-x-2">
-                             <button @click="openInfoEditModal(item)" class="text-gray-400 hover:text-blue-600 text-xs"><i class="fa-solid fa-pen"></i></button>
-                             <button @click="deleteItem('infoList', item.id)" class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
+                             <button @click="openInfoEditModal(item)" class="text-gray-300 hover:text-white"><i class="fa-solid fa-pen"></i></button>
+                             <button @click="deleteItem('infoList', item.id)" class="text-red-400 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="p-3 flex justify-between items-center relative">
+                        <div class="border-r-2 border-dashed border-gray-300 pr-4 flex-1">
+                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">FLIGHT NO</div>
+                            <div class="text-2xl font-black font-mono leading-none mb-2">{{ item.title }}</div>
+                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">DETAILS</div>
+                            <div class="text-xs font-bold whitespace-pre-line leading-tight">{{ item.content }}</div>
+                        </div>
+                        <div class="w-8 flex flex-col items-center justify-center opacity-30 pl-2">
+                            <i class="fa-solid fa-barcode text-4xl rotate-90"></i>
                         </div>
                     </div>
                 </div>
-
+                
+                <!-- Standard Design -->
                 <div v-else class="bg-white border-2 border-black shadow-hard p-3 relative">
                     <div class="flex justify-between items-start mb-2 border-b-2 border-black pb-1">
-                        <span class="bg-black text-white text-[10px] px-2 py-0.5 font-bold uppercase">{{ item.category }}</span>
+                        <span class="bg-white border border-black text-black text-[10px] px-2 py-0.5 font-bold uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{{ item.category }}</span>
                         <div class="space-x-2">
                              <button @click="openInfoEditModal(item)" class="text-gray-500 hover:text-blue-600 text-[10px]"><i class="fa-solid fa-pen"></i></button>
                              <button @click="deleteItem('infoList', item.id)" class="text-red-500 text-[10px]"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                     <div class="font-black text-lg mb-1">{{ item.title }}</div>
-                    <div class="text-xs text-gray-600 font-medium whitespace-pre-line">{{ item.content }}</div>
+                    <div class="text-xs text-gray-600 whitespace-pre-line border-l-2 border-gray-200 pl-2">{{ item.content }}</div>
                 </div>
             </div>
 
-            <div v-if="infoList.length === 0" class="text-center text-gray-400 text-xs italic mt-10">No Info Added Yet...</div>
-            <div class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
-                <button @click="openInfoAddModal" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">ADD INFO</button>
+            <!-- ADD INFO BUTTON -->
+             <div class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
+                <button @click="openInfoAddModal" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">
+                    ADD INFO
+                </button>
             </div>
         </div>
 
-        <!-- 5. SETTING (Modified Terminology) -->
+        <!-- 5. SETTING -->
         <div v-if="currentTab === 'setting'" class="space-y-4 animate-bounce-in">
             <div class="bg-white border-2 border-black shadow-hard p-4 space-y-3 w-full box-border overflow-hidden">
                 <h3 class="font-black border-b-2 border-black pb-2">SETTINGS</h3>
-                <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">出發日 Start Date</label>
-                    <input type="date" v-model="settings.startDate" class="w-full min-w-0 block border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none appearance-none" @change="saveData">
+                <!-- Users Setting -->
+                <div class="w-full bg-neon-blue/20 p-2 border border-black">
+                    <label class="block font-bold text-xs mb-1">使用者名單 Users (用逗號分隔)</label>
+                    <input v-model="usersInput" @blur="updateUsers" placeholder="e.g. Leo, Amy" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-white rounded-none">
+                    <div class="text-[9px] text-gray-500 mt-1">* 首位將預設為主要使用者</div>
                 </div>
-                <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">旅遊天數 Duration</label>
-                    <input type="number" v-model="settings.tripDays" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" min="1" max="30" @change="saveData">
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-bold text-xs mb-1">出發日 Start</label>
+                        <input type="date" v-model="settings.startDate" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" @change="saveData">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-xs mb-1">天數 Days</label>
+                        <input type="number" v-model="settings.tripDays" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none" min="1" max="30" @change="saveData">
+                    </div>
                 </div>
+
+                <!-- Custom Rates -->
                 <div class="w-full border-t border-gray-300 pt-2 mt-2">
                     <label class="block font-bold text-xs mb-2">自訂匯率 Custom Rates (HKD Base)</label>
                     <div class="grid grid-cols-3 gap-2">
@@ -323,19 +347,17 @@
                          </div>
                     </div>
                 </div>
-                <!-- 改為 "使用者設定" -->
-                <div class="w-full border-t border-gray-300 pt-2 mt-2">
-                    <label class="block font-bold text-xs mb-1">使用者名稱 Users (包括自己, 用逗號分隔)</label>
-                    <input v-model="usersInput" @blur="updateUsers" placeholder="e.g. Me, Amy, John" class="w-full min-w-0 border-2 border-black p-2 font-bold text-sm bg-gray-50 rounded-none">
-                </div>
-                <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">OpenWeather API Key (Hidden)</label>
+
+                <!-- API Keys -->
+                <div class="w-full mt-2">
+                    <label class="block font-bold text-xs mb-1">OpenWeather API Key</label>
                     <input type="password" v-model="weatherApiKey" placeholder="Paste Key Here..." class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
                 </div>
                 <div class="w-full">
-                    <label class="block font-bold text-xs mb-1">Firebase Config JSON (Hidden)</label>
+                    <label class="block font-bold text-xs mb-1">Firebase Config JSON</label>
                     <input type="password" v-model="firebaseConfigStr" placeholder='{"apiKey": "...", ...}' class="w-full min-w-0 border-2 border-black p-2 font-bold text-xs bg-gray-50 focus:bg-white rounded-none">
                 </div>
+                
                 <div class="grid grid-cols-2 gap-2 pt-2">
                     <button @click="initFirebase" class="bg-black text-white border-2 border-black py-2 font-bold hover:bg-gray-800 text-xs">CONNECT CLOUD</button>
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
@@ -345,27 +367,35 @@
         </div>
     </main>
 
-    <!-- Modals (Itinerary / Info / Calc) - No Changes in Logic -->
+    <!-- Itinerary Add Menu (Bottom) -->
     <div v-if="currentTab === 'itinerary'" class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
         <div v-if="showAddMenu" class="pointer-events-auto mb-2 w-full bg-white border-2 border-black shadow-hard p-2 grid grid-cols-3 gap-2 animate-bounce-in">
-            <button @click="openAddModal('attraction')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-camera text-lg mb-1"></i><span class="text-[10px] font-bold">景點</span></button>
-            <button @click="openAddModal('food')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-utensils text-lg mb-1"></i><span class="text-[10px] font-bold">餐廳</span></button>
-            <button @click="openAddModal('transport')" class="flex flex-col items-center p-2 hover:bg-neon-pink border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-train text-lg mb-1"></i><span class="text-[10px] font-bold">交通</span></button>
+            <button @click="openAddModal('attraction')" class="flex flex-col items-center p-2 hover:bg-gray-100 border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-camera text-lg mb-1"></i><span class="text-[10px] font-bold">景點</span></button>
+            <button @click="openAddModal('food')" class="flex flex-col items-center p-2 bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 hover:border-orange-500 transition-all text-orange-900"><i class="fa-solid fa-utensils text-lg mb-1"></i><span class="text-[10px] font-bold">餐廳</span></button>
+            <button @click="openAddModal('transport')" class="flex flex-col items-center p-2 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-500 transition-all text-blue-900"><i class="fa-solid fa-train text-lg mb-1"></i><span class="text-[10px] font-bold">交通</span></button>
         </div>
         <button @click="showAddMenu = !showAddMenu" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">{{ showAddMenu ? 'CLOSE' : 'ADD NEW' }}</button>
     </div>
 
-    <!-- Modals -->
+    <!-- Navigation Bar -->
+    <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-5 z-40">
+        <button v-for="tab in ['itinerary','expense','bag','info','setting']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[9px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
+            <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-circle-info','setting':'fa-gear'}[tab]]"></i>
+            {{ tab.toUpperCase() }}
+        </button>
+    </nav>
+
+    <!-- Itinerary Modal -->
     <div v-if="showModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-4 space-y-3 animate-bounce-in box-border">
             <h3 class="font-black text-sm bg-neon-pink inline-block px-2 border-2 border-black transform -rotate-2">{{ editingId ? 'EDIT ITEM' : 'NEW ' + newItem.type.toUpperCase() }}</h3>
             <div class="space-y-2">
-                <input v-model="newItem.title" placeholder="名稱 Title (顯眼)" class="w-full border-2 border-black p-2 font-black text-lg rounded-none">
+                <input v-model="newItem.title" placeholder="主要標題 Title (e.g. 東京鐵塔)" class="w-full border-2 border-black p-2 font-black text-lg rounded-none">
                 <div class="flex gap-2">
                     <input v-model="newItem.time" type="time" class="w-1/3 border-2 border-black p-2 font-bold rounded-none text-sm">
                     <input v-model="newItem.location" placeholder="地點 Location" class="w-2/3 border-2 border-black p-2 font-bold rounded-none text-sm">
                 </div>
-                <textarea v-model="newItem.remarks" placeholder="備註 Remarks (補充資訊)" class="w-full h-16 border-2 border-black p-2 font-normal text-xs rounded-none"></textarea>
+                <textarea v-model="newItem.remarks" placeholder="備註 Remarks (e.g. 門票 $200, 記得帶遮)" class="w-full border-2 border-black p-2 font-medium text-sm rounded-none h-20 bg-gray-50"></textarea>
             </div>
             <div class="flex gap-2 mt-4">
                 <button @click="saveNewItem" class="flex-1 bg-black text-white border-2 border-black py-2 font-bold hover:bg-gray-800 text-sm">CONFIRM</button>
@@ -374,6 +404,7 @@
         </div>
     </div>
     
+    <!-- Info Modal -->
     <div v-if="showInfoModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-4 space-y-3 animate-bounce-in box-border">
             <h3 class="font-black text-sm bg-neon-pink inline-block px-2 border-2 border-black transform -rotate-2">{{ editingId ? 'EDIT INFO' : 'NEW INFO' }}</h3>
@@ -384,8 +415,8 @@
                     <option value="Emergency">🆘 緊急 Emergency</option>
                     <option value="Other">📝 其他 Other</option>
                 </select>
-                <input v-model="newInfo.title" placeholder="標題 Title (e.g. CX888)" class="w-full border-2 border-black p-2 font-black text-lg rounded-none">
-                <textarea v-model="newInfo.content" placeholder="內容詳情 Content..." class="w-full h-24 border-2 border-black p-2 font-bold rounded-none text-sm"></textarea>
+                <input v-model="newInfo.title" placeholder="標題 Title (顯眼)" class="w-full border-2 border-black p-2 font-black text-lg rounded-none">
+                <textarea v-model="newInfo.content" placeholder="內容詳情 Content..." class="w-full h-24 border-2 border-black p-2 font-medium rounded-none text-sm"></textarea>
             </div>
             <div class="flex gap-2 mt-4">
                 <button @click="saveNewInfo" class="flex-1 bg-black text-white border-2 border-black py-2 font-bold hover:bg-gray-800 text-sm">CONFIRM</button>
@@ -394,6 +425,7 @@
         </div>
     </div>
     
+    <!-- Quick Calc -->
     <div v-if="showGlobalCalc" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" @click.self="showGlobalCalc = false">
         <div class="bg-white border-2 border-black shadow-hard w-full max-w-sm p-5 space-y-3 animate-bounce-in">
             <h3 class="font-black text-lg text-center border-b-2 border-black pb-2">QUICK RATE</h3>
@@ -410,22 +442,11 @@
             <button @click="showGlobalCalc = false" class="w-full border-2 border-black py-2 font-bold hover:bg-gray-100 transition-colors text-sm">CLOSE</button>
         </div>
     </div>
-
-    <!-- Bottom Nav -->
-    <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-5 z-40">
-        <button v-for="tab in ['itinerary','expense','bag','info','setting']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[9px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
-            <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-circle-info','setting':'fa-gear'}[tab]]"></i>
-            {{ tab.toUpperCase() }}
-        </button>
-    </nav>
 </div>
 
 <script>
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
-    const draggable = window.vuedraggable;
-
     createApp({
-        components: { draggable },
         setup() {
             // State
             const currentTab = ref('itinerary');
@@ -438,12 +459,13 @@
             const isEditingTitle = ref(false);
             const titleInput = ref(null);
             const editingId = ref(null);
-            const bagFilter = ref(''); // Default empty, wait for users load
+            const itineraryListRef = ref(null);
 
             // Data
             const settings = ref({ appTitle: 'TRIP.OS', startDate: new Date().toISOString().split('T')[0], tripDays: 5 });
-            const usersInput = ref('');
-            const users = ref([]);
+            const usersInput = ref('Leo');
+            const users = ref(['Leo']);
+            const bagFilterUser = ref('Leo');
             
             const currencyRates = ref({ 'JPY': 0.052, 'KRW': 0.0058, 'TWD': 0.24, 'THB': 0.22, 'CNY': 1.08, 'EUR': 8.5, 'GBP': 9.8, 'USD': 7.8, 'AUD': 5.2, 'SGD': 5.8, 'HKD': 1.0 });
             const selectedCurrency = ref('JPY');
@@ -451,23 +473,49 @@
 
             const itinerary = ref([]);
             const expenses = ref([]);
-            const bagList = ref([]); // Start empty
-            const souvenirList = ref([{id: 1, text: 'Tokyo Banana', checked: false}]);
+            const bagList = ref([{id: 1, text: 'Passport', checked: false, owner: 'Leo'}]);
+            const souvenirList = ref([{id: 1, text: 'Tokyo Banana', checked: false, owner: 'Leo'}]);
             const infoList = ref([]);
             
             const firebaseConfigStr = ref('');
             const weatherApiKey = ref('');
             const currentWeather = ref(null);
-            const hourlyForecast = ref([]);
+            const forecastList = ref([]);
+            const currentAutoLocation = ref('');
 
             const calcDisplay = ref('');
             const expenseType = ref('cash');
-            const expensePayer = ref('');
+            const expensePayer = ref('Leo');
             const expenseNote = ref('');
             const globalCalcInput = ref('');
             
-            const newItem = ref({ type: 'attraction', title: '', time: '10:00', location: '', remarks: '' });
+            const newItem = ref({ type: 'attraction', title: '', remarks: '', time: '10:00', location: '' });
             const newInfo = ref({ category: 'Flight', title: '', content: '' });
+
+            // SortableJS Init
+            const initSortable = () => {
+                if(itineraryListRef.value) {
+                    new Sortable(itineraryListRef.value, {
+                        animation: 150,
+                        delay: 250, 
+                        delayOnTouchOnly: true,
+                        ghostClass: 'sortable-ghost',
+                        dragClass: 'sortable-drag',
+                        onEnd: (evt) => {
+                            const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
+                            const dayItems = filteredItinerary.value;
+                            const movedItem = dayItems[evt.oldIndex];
+                            
+                            dayItems.splice(evt.oldIndex, 1);
+                            dayItems.splice(evt.newIndex, 0, movedItem);
+                            
+                            const otherItems = itinerary.value.filter(i => i.date !== dateKey);
+                            itinerary.value = [...otherItems, ...dayItems];
+                            saveData();
+                        }
+                    });
+                }
+            };
 
             // Computed
             const tripDays = computed(() => {
@@ -481,169 +529,248 @@
                 return days;
             });
 
-            const filteredItinerary = computed({
-                get: () => {
-                    const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
-                    return itinerary.value.filter(i => i.date === dateKey).sort((a,b) => a.order - b.order || a.time.localeCompare(b.time));
-                },
-                set: (newVal) => {
-                    newVal.forEach((item, index) => {
-                        const originalItem = itinerary.value.find(i => i.id === item.id);
-                        if (originalItem) originalItem.order = index;
-                    });
-                    saveData();
-                }
+            const filteredItinerary = computed(() => {
+                const dateKey = tripDays.value[selectedDayIndex.value]?.dateStr;
+                return itinerary.value.filter(i => i.date === dateKey); 
             });
-
-            // Bag Filter Logic: Must filter by exact user
-            const filteredBagList = computed(() => {
-                if(!bagFilter.value) return [];
-                return bagList.value.filter(i => i.owner === bagFilter.value);
-            });
-
-            const smartLocation = computed(() => {
-                const todayItems = filteredItinerary.value;
-                if(todayItems.length === 0) return '';
-                const nowHour = new Date().getHours();
-                const nowStr = `${nowHour.toString().padStart(2,'0')}:00`;
-                const viewingDate = tripDays.value[selectedDayIndex.value]?.dateStr;
-                const todayStr = new Date().toISOString().split('T')[0];
-                if(viewingDate !== todayStr) return todayItems[0].location;
-                const nextItem = todayItems.find(i => i.time >= nowStr && i.location);
-                return nextItem ? nextItem.location : (todayItems[todayItems.length-1]?.location || '');
-            });
+            
+            const filteredBagList = computed(() => bagList.value.filter(i => i.owner === bagFilterUser.value));
+            const filteredSouvenirList = computed(() => souvenirList.value.filter(i => i.owner === bagFilterUser.value));
 
             const totalSpent = computed(() => expenses.value.reduce((acc, curr) => acc + parseFloat(curr.hkdAmount), 0).toFixed(1));
             const expenseStats = computed(() => {
-                const stats = {}; users.value.forEach(u => stats[u] = 0);
-                expenses.value.forEach(exp => { const p = exp.payer; if(stats[p] === undefined) stats[p] = 0; stats[p] += parseFloat(exp.hkdAmount); });
-                for(let p in stats) stats[p] = stats[p].toFixed(1); return stats;
+                const stats = {};
+                users.value.forEach(u => stats[u] = 0);
+                expenses.value.forEach(exp => {
+                    if(stats[exp.payer] === undefined) stats[exp.payer] = 0;
+                    stats[exp.payer] += parseFloat(exp.hkdAmount);
+                });
+                for(let p in stats) stats[p] = stats[p].toFixed(1);
+                return stats;
             });
 
             // Methods
-            const editTitle = () => { isEditingTitle.value = true; nextTick(() => titleInput.value.focus()); };
-            
-            const updateUsers = () => { 
+            const updateUsers = () => {
                 const arr = usersInput.value.split(/[,，]/).map(s => s.trim()).filter(s => s);
-                users.value = [...new Set(arr)]; 
-                if(users.value.length > 0 && !bagFilter.value) bagFilter.value = users.value[0];
-                if(users.value.length > 0 && !expensePayer.value) expensePayer.value = users.value[0];
-                saveData(); 
+                users.value = arr.length ? [...new Set(arr)] : ['User'];
+                if(!users.value.includes(bagFilterUser.value)) bagFilterUser.value = users.value[0];
+                if(!users.value.includes(expensePayer.value)) expensePayer.value = users.value[0];
+                saveData();
+            };
+
+            // SMART WEATHER LOGIC
+            const detectLocation = () => {
+                const now = new Date();
+                const todayStr = now.toISOString().split('T')[0];
+                const currentHour = now.getHours();
+                const currentMinutes = now.getMinutes();
+                const currentTimeVal = currentHour * 60 + currentMinutes;
+
+                const todayItems = itinerary.value.filter(i => i.date === todayStr && i.location);
+                if(!todayItems.length) return filteredItinerary.value[0]?.location || '';
+
+                let loc = todayItems[0].location;
+                todayItems.sort((a,b) => a.time.localeCompare(b.time));
+                
+                for(let item of todayItems) {
+                    const [h, m] = item.time.split(':').map(Number);
+                    if ((h * 60 + m) <= currentTimeVal + 60) { 
+                         loc = item.location;
+                    }
+                }
+                return loc;
             };
 
             const fetchWeather = async () => {
-                const loc = smartLocation.value;
-                if(!loc || !weatherApiKey.value) { currentWeather.value = null; return; }
+                if(!weatherApiKey.value) return;
+                
+                let loc = detectLocation();
+                if(!loc) loc = filteredItinerary.value.find(i=>i.location)?.location;
+                if(!loc) return;
+                
+                currentAutoLocation.value = loc;
+
                 try {
                     const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${loc}&limit=1&appid=${weatherApiKey.value}`);
                     const geoData = await geoRes.json();
                     if(!geoData.length) return;
                     const { lat, lon } = geoData[0];
-                    
+
                     const wRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${weatherApiKey.value}`);
                     currentWeather.value = await wRes.json();
 
-                    // Get Forecast (5 Day / 3 Hour) -> Process to flat hourly for next 24h
                     const fRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${weatherApiKey.value}`);
                     const fData = await fRes.json();
                     
-                    // Simple logic: Take next 8 segments (24 hours) from list
-                    hourlyForecast.value = fData.list.slice(0, 8).map(i => ({
-                        dt: i.dt,
-                        time: i.dt_txt.split(' ')[1].slice(0,5),
-                        temp: i.main.temp,
-                        icon: i.weather[0].icon
-                    }));
+                    forecastList.value = fData.list.slice(0, 9); 
+
                 } catch(e) { console.error(e); }
             };
 
-            const onDragEnd = () => { saveData(); };
-            watch([selectedDayIndex, itinerary], () => setTimeout(fetchWeather, 500));
-
-            // ... (Shared Methods)
+            watch([selectedDayIndex], () => { 
+                nextTick(initSortable); 
+                setTimeout(fetchWeather, 500); 
+            });
+            
             const openMap = (loc) => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
-            const handleCalcInput = (btn) => { if(btn==='C') calcDisplay.value=''; else if(btn==='⌫') calcDisplay.value=calcDisplay.value.slice(0,-1); else calcDisplay.value+=btn; };
-            const addExpense = () => { 
-                if(!expensePayer.value) { alert('Please select a User (Payer)!'); return; }
-                try { const amount=eval(calcDisplay.value); if(!amount)return; expenses.value.unshift({id:Date.now(), hkdAmount:(amount*currentRate.value).toFixed(1), currency:selectedCurrency.value, note:expenseNote.value||'Expense', type:expenseType.value, payer:expensePayer.value, date:new Date().toLocaleDateString()}); calcDisplay.value=''; expenseNote.value=''; saveData(); }catch(e){} 
+            const getIcon = (type) => ({food:'fa-utensils',transport:'fa-train'}[type] || 'fa-camera');
+            const formatTime = (txt) => {
+                const date = new Date(txt);
+                return `${date.getHours()}:00`;
             };
-            
-            const openAddModal = (type) => { editingId.value=null; newItem.value={type, title:'', time:'12:00', location:'', remarks:''}; showModal.value=true; showAddMenu.value=false; };
-            const openEditModal = (item) => { editingId.value=item.id; newItem.value={...item}; showModal.value=true; };
+            const getWeatherIcon = (code) => {
+                if(code.includes('01')) return 'fa-solid fa-sun';
+                if(code.includes('02')) return 'fa-solid fa-cloud-sun';
+                if(code.includes('03') || code.includes('04')) return 'fa-solid fa-cloud';
+                if(code.includes('09') || code.includes('10')) return 'fa-solid fa-cloud-rain';
+                return 'fa-solid fa-cloud';
+            };
+
+            const handleCalcInput = (btn) => {
+                if(btn==='C') calcDisplay.value='';
+                else if(btn==='⌫') calcDisplay.value = calcDisplay.value.slice(0, -1);
+                else calcDisplay.value += btn;
+            };
+
+            const addExpense = () => {
+                try {
+                    const amount = eval(calcDisplay.value);
+                    if(!amount) return;
+                    expenses.value.unshift({
+                        id: Date.now(), hkdAmount: (amount * currentRate.value).toFixed(1), currency: selectedCurrency.value,
+                        note: expenseNote.value || 'Expense', type: expenseType.value, payer: expensePayer.value, date: new Date().toLocaleDateString()
+                    });
+                    calcDisplay.value=''; expenseNote.value=''; saveData();
+                } catch(e){}
+            };
+
+            // CRUD
+            const openAddModal = (type) => { editingId.value = null; newItem.value={type, title:'', remarks:'', time:'12:00', location:''}; showModal.value=true; showAddMenu.value=false; };
+            const openEditModal = (item) => { editingId.value = item.id; newItem.value = { ...item }; showModal.value = true; };
             const saveNewItem = () => {
-                if(editingId.value) { const idx=itinerary.value.findIndex(i=>i.id===editingId.value); if(idx!==-1) itinerary.value[idx]={...itinerary.value[idx], ...newItem.value}; }
-                else { const dateStr=tripDays.value[selectedDayIndex.value]?.dateStr||settings.value.startDate; itinerary.value.push({id:Date.now(), date:dateStr, order: itinerary.value.length, ...newItem.value}); }
-                showModal.value=false; saveData();
-            };
-            
-            const openInfoAddModal = () => { editingId.value=null; newInfo.value={category:'Flight', title:'', content:''}; showInfoModal.value=true; };
-            const openInfoEditModal = (item) => { editingId.value=item.id; newInfo.value={...item}; showInfoModal.value=true; };
-            const saveNewInfo = () => {
-                if(editingId.value) { const idx=infoList.value.findIndex(i=>i.id===editingId.value); if(idx!==-1) infoList.value[idx]={...infoList.value[idx], ...newInfo.value}; }
-                else { infoList.value.push({id:Date.now(), ...newInfo.value}); }
-                showInfoModal.value=false; saveData();
-            };
-
-            const deleteItem = (list, id) => { if(!confirm('Delete?'))return; if(list==='itinerary') itinerary.value=itinerary.value.filter(i=>i.id!==id); if(list==='expenses') expenses.value=expenses.value.filter(i=>i.id!==id); if(list==='bagList') bagList.value=bagList.value.filter(i=>i.id!==id); if(list==='souvenirList') souvenirList.value=souvenirList.value.filter(i=>i.id!==id); if(list==='infoList') infoList.value=infoList.value.filter(i=>i.id!==id); saveData(); };
-            
-            // Add Bag Item for Specific User
-            const addChecklistItem = (type) => { 
-                if(type==='bag') {
-                     if(!bagFilter.value) { alert('Add users in settings first!'); return; }
-                     bagList.value.push({id:Date.now(), text:'', checked:false, owner: bagFilter.value});
+                if (editingId.value) {
+                    const idx = itinerary.value.findIndex(i => i.id === editingId.value);
+                    if (idx !== -1) itinerary.value[idx] = { ...itinerary.value[idx], ...newItem.value };
                 } else {
-                    souvenirList.value.push({id:Date.now(), text:'', checked:false}); 
+                    const dateStr = tripDays.value[selectedDayIndex.value]?.dateStr || settings.value.startDate;
+                    itinerary.value.push({ id: Date.now(), date: dateStr, ...newItem.value });
                 }
+                showModal.value = false; saveData();
+                nextTick(initSortable);
             };
 
-            const getStorageData = () => ({ itinerary:itinerary.value, expenses:expenses.value, bagList:bagList.value, souvenirList:souvenirList.value, infoList:infoList.value, settings:settings.value, users:users.value, weatherApiKey:weatherApiKey.value, firebaseConfigStr:firebaseConfigStr.value, currencyRates:currencyRates.value });
-            const saveData = async () => { const data=getStorageData(); localStorage.setItem('bp_trip_ultimate_v4_1', JSON.stringify(data)); if(window.db&&firebaseConfigStr.value){try{await window.fb.setDoc(window.fb.doc(window.db,"trips","myTrip"),data);}catch(e){}} };
-            const exportJSON = () => { const dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(getStorageData(),null,2)); const a=document.createElement('a'); a.setAttribute("href",dataStr); a.setAttribute("download",`trip_backup.json`); document.body.appendChild(a); a.click(); a.remove(); };
+            const openInfoAddModal = () => { editingId.value = null; newInfo.value={category:'Flight', title:'', content:''}; showInfoModal.value=true; };
+            const openInfoEditModal = (item) => { editingId.value = item.id; newInfo.value = { ...item }; showInfoModal.value = true; };
+            const saveNewInfo = () => {
+                if (editingId.value) {
+                    const idx = infoList.value.findIndex(i => i.id === editingId.value);
+                    if (idx !== -1) infoList.value[idx] = { ...infoList.value[idx], ...newInfo.value };
+                } else {
+                    infoList.value.push({ id: Date.now(), ...newInfo.value });
+                }
+                showInfoModal.value = false; saveData();
+            };
+
+            const deleteItem = (list, id) => {
+                if(!confirm('Delete?')) return;
+                if(list==='itinerary') itinerary.value = itinerary.value.filter(i=>i.id!==id);
+                if(list==='expenses') expenses.value = expenses.value.filter(i=>i.id!==id);
+                if(list==='bagList') bagList.value = bagList.value.filter(i=>i.id!==id);
+                if(list==='souvenirList') souvenirList.value = souvenirList.value.filter(i=>i.id!==id);
+                if(list==='infoList') infoList.value = infoList.value.filter(i=>i.id!==id);
+                saveData();
+            };
+            const addChecklistItem = (type) => { 
+                type==='bag' ? bagList.value.push({id:Date.now(),text:'',checked:false, owner: bagFilterUser.value}) 
+                             : souvenirList.value.push({id:Date.now(),text:'',checked:false, owner: bagFilterUser.value}); 
+            };
+
+            // Storage
+            const getStorageData = () => ({
+                itinerary: itinerary.value, expenses: expenses.value, 
+                bagList: bagList.value, souvenirList: souvenirList.value, infoList: infoList.value,
+                settings: settings.value, users: users.value, 
+                weatherApiKey: weatherApiKey.value, firebaseConfigStr: firebaseConfigStr.value,
+                currencyRates: currencyRates.value
+            });
+
+            const saveData = async () => {
+                const data = getStorageData();
+                localStorage.setItem('bp_trip_ultimate_v4_1', JSON.stringify(data));
+                if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
+            };
+
+            const exportJSON = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getStorageData(), null, 2));
+                const a = document.createElement('a'); a.setAttribute("href", dataStr); a.setAttribute("download", `trip_backup.json`);
+                document.body.appendChild(a); a.click(); a.remove();
+            };
 
             const loadLocalData = () => {
                 const saved = localStorage.getItem('bp_trip_ultimate_v4_1');
                 if(saved) {
                     const data = JSON.parse(saved);
-                    itinerary.value=data.itinerary||[]; expenses.value=data.expenses||[]; bagList.value=data.bagList||[]; souvenirList.value=data.souvenirList||[]; infoList.value=data.infoList||[];
-                    settings.value={...settings.value, ...data.settings}; 
-                    // Load Users
-                    users.value=data.users||[]; usersInput.value=users.value.join(', ');
-                    if(users.value.length > 0) {
-                        bagFilter.value = users.value[0];
-                        expensePayer.value = users.value[0];
-                    }
-                    weatherApiKey.value=data.weatherApiKey||''; firebaseConfigStr.value=data.firebaseConfigStr||'';
-                    if(data.currencyRates) currencyRates.value=data.currencyRates;
+                    itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
+                    bagList.value = data.bagList||[]; souvenirList.value = data.souvenirList||[]; infoList.value = data.infoList||[];
+                    settings.value = {...settings.value, ...data.settings};
+                    users.value = data.users || ['Leo']; usersInput.value = users.value.join(', ');
+                    weatherApiKey.value = data.weatherApiKey||''; firebaseConfigStr.value = data.firebaseConfigStr||'';
+                    if(data.currencyRates) currencyRates.value = data.currencyRates;
+                    
+                    if(!users.value.includes(bagFilterUser.value)) bagFilterUser.value = users.value[0];
+                    if(!users.value.includes(expensePayer.value)) expensePayer.value = users.value[0];
                 }
             };
 
             const initFirebase = async () => {
-                let str = firebaseConfigStr.value.trim(); if(!str)return; if(str.startsWith("'")&&str.endsWith("'")) str=str.slice(1,-1);
+                let str = firebaseConfigStr.value.trim();
+                if(!str) return;
+                if(str.startsWith("'") && str.endsWith("'")) str = str.slice(1, -1);
+                
                 try {
-                    saveData(); const config=JSON.parse(str); const app=window.fb.initializeApp(config); window.db=window.fb.getFirestore(app);
-                    window.fb.onSnapshot(window.fb.doc(window.db,"trips","myTrip"),(doc)=>{
-                        if(doc.exists()){
-                            const data=doc.data(); itinerary.value=data.itinerary||[]; expenses.value=data.expenses||[]; bagList.value=data.bagList||[]; souvenirList.value=data.souvenirList||[]; infoList.value=data.infoList||[];
-                            settings.value=data.settings||{}; users.value=data.users||[]; usersInput.value=users.value.join(', ');
-                             if(users.value.length > 0 && !bagFilter.value) bagFilter.value = users.value[0];
-                            if(data.currencyRates) currencyRates.value=data.currencyRates; isSyncing.value=true;
+                    saveData();
+                    const config = JSON.parse(str);
+                    const app = window.fb.initializeApp(config);
+                    window.db = window.fb.getFirestore(app);
+                    
+                    window.fb.onSnapshot(window.fb.doc(window.db, "trips", "myTrip"), (doc) => {
+                        if (doc.exists()) {
+                            const data = doc.data();
+                            itinerary.value = data.itinerary || []; expenses.value = data.expenses || [];
+                            bagList.value = data.bagList || []; souvenirList.value = data.souvenirList || []; infoList.value = data.infoList || [];
+                            settings.value = data.settings || {}; users.value = data.users || ['Leo'];
+                            usersInput.value = users.value.join(', ');
+                            if(data.currencyRates) currencyRates.value = data.currencyRates;
+                            isSyncing.value = true;
                         }
                     });
                     console.log('🔥 Connected!');
-                } catch(e) { alert('CONFIG ERROR: '+e.message); }
+                } catch(e) { 
+                    alert('CONFIG ERROR: ' + e.message); 
+                }
             };
 
-            onMounted(() => { loadLocalData(); if(firebaseConfigStr.value) setTimeout(initFirebase,500); setTimeout(fetchWeather,1000); });
+            const editTitle = () => { isEditingTitle.value = true; nextTick(() => titleInput.value.focus()); };
+
+            onMounted(() => {
+                loadLocalData(); 
+                if(firebaseConfigStr.value) { setTimeout(initFirebase, 500); }
+                setTimeout(() => {
+                    fetchWeather();
+                    initSortable();
+                }, 1000);
+            });
 
             return {
                 currentTab, showAddMenu, showModal, showInfoModal, showGlobalCalc, isSyncing, isEditingTitle, titleInput, editingId,
-                settings, tripDays, selectedDayIndex, filteredItinerary, expenses, bagList, filteredBagList, souvenirList, infoList,
+                settings, tripDays, selectedDayIndex, itinerary, filteredItinerary, expenses, bagList, souvenirList, infoList,
                 calcDisplay, handleCalcInput, addExpense, expenseType, expenseNote, expensePayer, totalSpent, expenseStats,
                 newItem, newInfo, openAddModal, openEditModal, openInfoAddModal, openInfoEditModal, saveNewItem, saveNewInfo, deleteItem, addChecklistItem,
-                currencyRates, selectedCurrency, currentRate, updateRate, globalCalcInput,
-                firebaseConfigStr, initFirebase, weatherApiKey, currentWeather, hourlyForecast,
-                usersInput, updateUsers, users, bagFilter, smartLocation,
-                openMap, saveData, exportJSON, fetchWeather, editTitle, onDragEnd
+                currencyRates, selectedCurrency, currentRate, globalCalcInput,
+                firebaseConfigStr, initFirebase, weatherApiKey, currentWeather, forecastList, currentAutoLocation, 
+                usersInput, updateUsers, users, bagFilterUser, filteredBagList, filteredSouvenirList,
+                openMap, getIcon, getWeatherIcon, formatTime, saveData, exportJSON, fetchWeather, editTitle,
+                itineraryListRef
             };
         }
     }).mount('#app');
