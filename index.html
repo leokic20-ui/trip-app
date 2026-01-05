@@ -2,8 +2,17 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Trip.OS v4.5</title>
+    <!-- Viewport Fit=Cover 是全螢幕的關鍵 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA Settings (iOS Standalone) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"> <!-- default = 白底黑字 -->
+    <meta name="theme-color" content="#ffffff"> <!-- 讓狀態列背景變白 -->
+    <meta name="format-detection" content="telephone=no">
+    
+    <title>Trip.OS</title>
+    
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <!-- Tailwind CSS -->
@@ -57,7 +66,19 @@
             -webkit-user-select: none;
             user-select: none;
             -webkit-touch-callout: none;
+            
+            /* 讓 Body 填滿整個 Viewport (含瀏海區) */
+            height: 100vh;
+            height: 100dvh; /* Dynamic Viewport Height */
+            overflow: hidden;
         }
+        
+        /* Safe Area 變數 */
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sab: env(safe-area-inset-bottom);
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         input[type="date"] { -webkit-appearance: none; min-width: 0; display: block; width: 100%; }
         input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
@@ -87,12 +108,16 @@
         input, textarea { -webkit-user-select: text; user-select: text; }
     </style>
 </head>
-<body class="text-black overflow-hidden fixed inset-0">
+<body class="text-black fixed inset-0">
 
-<div id="app" class="h-full max-w-md mx-auto bg-marble flex flex-col relative border-x-2 border-black">
+<!-- App Container: 使用 flex-col 來撐滿畫面 -->
+<div id="app" class="h-full w-full max-w-md mx-auto bg-marble flex flex-col relative border-x-2 border-black">
     
-    <!-- Header -->
-    <header class="p-3 border-b-2 border-black bg-white flex justify-between items-center z-20 shrink-0 h-14">
+    <!-- Header: 增加 pt-[env(safe-area-inset-top)] 來避開瀏海 -->
+    <!-- h-auto 和 min-h 設定確保高度隨瀏海動態調整 -->
+    <header class="border-b-2 border-black bg-white flex justify-between items-center z-20 shrink-0
+                   pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-3 px-3
+                   min-h-[calc(3.5rem+env(safe-area-inset-top))]">
         <div class="flex items-center gap-2 overflow-hidden">
             <input v-if="isEditingTitle" v-model="settings.appTitle" @blur="isEditingTitle=false; saveData()" class="text-xl font-black italic tracking-tighter w-40 bg-gray-100 border-b-2 border-black focus:outline-none uppercase" ref="titleInput">
             <h1 v-else @click="editTitle" class="text-xl font-black italic tracking-tighter cursor-pointer uppercase truncate max-w-[200px]">{{ settings.appTitle || 'TRIP.OS' }} <i class="fa-solid fa-pen text-[10px] text-gray-400 align-top ml-1"></i></h1>
@@ -104,7 +129,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto p-3 pb-20 no-scrollbar space-y-4">
+    <main class="flex-1 overflow-y-auto p-3 pb-24 no-scrollbar space-y-4">
         
         <!-- 1. ITINERARY -->
         <div v-if="currentTab === 'itinerary'" class="space-y-3 animate-bounce-in">
@@ -285,7 +310,7 @@
              </div>
         </div>
 
-        <!-- 4. INFO (Upgraded with Sortable) -->
+        <!-- 4. INFO -->
         <div v-if="currentTab === 'info'" class="space-y-4 animate-bounce-in pb-10">
             <!-- INFO LIST CONTAINER -->
             <div ref="infoListRef" class="space-y-4">
@@ -341,7 +366,7 @@
             </div>
 
             <!-- ADD INFO BUTTON -->
-             <div class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
+             <div class="absolute bottom-20 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
                 <button @click="openInfoAddModal" class="pointer-events-auto bg-black text-white border-2 border-black h-10 px-6 flex items-center justify-center shadow-hard font-black text-xs tracking-widest active:translate-y-1 active:shadow-none w-1/2 transition-all">
                     ADD INFO
                 </button>
@@ -396,12 +421,13 @@
                     <button @click="exportJSON" class="bg-white text-black border-2 border-black py-2 font-bold hover:bg-gray-100 text-xs">EXPORT JSON</button>
                 </div>
             </div>
-            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.5 ULTIMATE</div>
+            <div class="text-center text-[10px] text-gray-400 font-bold mt-4">TRIP.OS v4.6 ULTIMATE (PWA)</div>
         </div>
     </main>
 
     <!-- Itinerary Add Menu (Bottom) -->
-    <div v-if="currentTab === 'itinerary'" class="absolute bottom-16 left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
+    <!-- 增加 pb-[env(safe-area-inset-bottom)] 確保按鈕不被黑條擋住 -->
+    <div v-if="currentTab === 'itinerary'" class="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 flex flex-col items-center justify-end pointer-events-none z-30 px-4">
         <div v-if="showAddMenu" class="pointer-events-auto mb-2 w-full bg-white border-2 border-black shadow-hard p-2 grid grid-cols-3 gap-2 animate-bounce-in">
             <button @click="openAddModal('attraction')" class="flex flex-col items-center p-2 hover:bg-gray-100 border-2 border-transparent hover:border-black transition-all"><i class="fa-solid fa-camera text-lg mb-1"></i><span class="text-[10px] font-bold">景點</span></button>
             <button @click="openAddModal('food')" class="flex flex-col items-center p-2 bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 hover:border-orange-500 transition-all text-orange-900"><i class="fa-solid fa-utensils text-lg mb-1"></i><span class="text-[10px] font-bold">餐廳</span></button>
@@ -411,7 +437,9 @@
     </div>
 
     <!-- Navigation Bar -->
-    <nav class="bg-white border-t-2 border-black h-12 shrink-0 grid grid-cols-5 z-40">
+    <!-- h-12 (3rem) + pb-safe-area-bottom -->
+    <nav class="bg-white border-t-2 border-black shrink-0 grid grid-cols-5 z-40
+                h-[calc(3rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)]">
         <button v-for="tab in ['itinerary','expense','bag','info','setting']" @click="currentTab=tab" :class="['flex flex-col items-center justify-center border-r-2 border-black font-bold text-[9px] transition-colors', currentTab===tab?'bg-neon-pink':'hover:bg-gray-100']">
             <i :class="['mb-0.5 text-base fa-solid', {'itinerary':'fa-map','expense':'fa-wallet','bag':'fa-suitcase','info':'fa-circle-info','setting':'fa-gear'}[tab]]"></i>
             {{ tab.toUpperCase() }}
@@ -753,7 +781,7 @@
 
             const saveData = async () => {
                 const data = getStorageData();
-                localStorage.setItem('bp_trip_ultimate_v4_5', JSON.stringify(data));
+                localStorage.setItem('bp_trip_ultimate_v4_6', JSON.stringify(data));
                 if(window.db && firebaseConfigStr.value) { try { await window.fb.setDoc(window.fb.doc(window.db, "trips", "myTrip"), data); } catch(e){} }
             };
 
@@ -764,7 +792,7 @@
             };
 
             const loadLocalData = () => {
-                const saved = localStorage.getItem('bp_trip_ultimate_v4_5');
+                const saved = localStorage.getItem('bp_trip_ultimate_v4_6');
                 if(saved) {
                     const data = JSON.parse(saved);
                     itinerary.value = data.itinerary||[]; expenses.value = data.expenses||[]; 
